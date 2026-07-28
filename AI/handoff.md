@@ -10,16 +10,33 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：📐 規劃完成，尚未開始開發  
-**PRD 版本**：v1.1（所有 Open Questions 已確認）  
+**專案階段**：🚧 Phase 1 進行中（Auth 系統完成，考試流程待開發）
+**分支**：`feat/phase1-auth`
+**PRD 版本**：v1.1
 **最後更新**：2026-07-28
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.1）
-- [x] AI 開發規範資料夾建立（context / architecture / decisions / handoff）
-- [x] 技術棧確認（Next.js 14 + Firebase + Vanilla CSS）
-- [x] Firestore 資料模型設計完成
-- [x] 7 項技術決策記錄至 decisions.md
+- [x] AI 開發規範資料夾（context / architecture / decisions / handoff）
+- [x] Git 版本控制初始化（main 分支）
+- [x] Next.js 16 + TypeScript 專案初始化
+- [x] Firebase Client / Admin SDK 設定
+- [x] TypeScript 型別定義（所有 Firestore collection）
+- [x] AuthContext（Google 登入、userDoc 同步、角色）
+- [x] 路由守衛 proxy.ts（Next.js 16 規範）
+- [x] globals.css 像素風格 Design Token 系統
+- [x] 登入頁面（`/login`）
+- [x] 首次設定顯示名稱頁面（`/setup`）
+- [x] 首頁大廳（`/`，含綜合/申論模式卡片）
+- [x] Dev server 啟動確認（http://localhost:3000）
+
+### 下次待辦
+- [ ] **Firebase Console 設定**：建立專案、啟用 Google Auth、建立 Firestore
+- [ ] **填寫 `.env.local`**：從 Firebase Console 複製設定值
+- [ ] 綜合模式考試大廳頁面（`/exam/quiz/lobby`）
+- [ ] 綜合模式作答頁面（`/exam/quiz/[examId]`）
+- [ ] 每題倒數計時元件（TimerBar）
+- [ ] 選擇題 / 問答題作答元件
 
 ### 尚未開始
 - [ ] Phase 1：專案初始化（Next.js + Firebase 設定）
