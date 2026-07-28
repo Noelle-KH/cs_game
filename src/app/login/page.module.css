@@ -1,0 +1,119 @@
+.main {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-4);
+}
+
+.loadingScreen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── 星空裝飾 ── */
+.stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.star {
+  position: absolute;
+  background: var(--color-parchment);
+  display: block;
+  animation: star-twinkle 2s steps(2, end) infinite;
+}
+
+/* ── 卡片 ── */
+.card {
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-12) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  animation: slide-in-pixel 400ms steps(4, end) both;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Logo 區 ── */
+.logoArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.logoIcon {
+  font-size: 4rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(244, 162, 74, 0.5));
+}
+
+.title {
+  font-size: var(--text-2xl);
+  text-align: center;
+}
+
+.subtitle {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* ── 分隔線 ── */
+.divider {
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-warm-orange),
+    transparent
+  );
+}
+
+/* ── 說明文字 ── */
+.desc {
+  font-size: var(--text-sm);
+  color: var(--color-gray-3);
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* ── Google 按鈕 ── */
+.googleBtn {
+  width: 100%;
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--text-sm);
+  gap: var(--space-3);
+}
+
+/* ── 版本標記 ── */
+.version {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-gray-4);
+}
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .card {
+    padding: var(--space-8) var(--space-6);
+  }
+  .logoIcon {
+    font-size: 3rem;
+  }
+  .title {
+    font-size: var(--text-xl);
+  }
+}
