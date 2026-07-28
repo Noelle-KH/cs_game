@@ -1,16 +1,10 @@
-// Next.js Middleware — 路由保護與角色驗證
+// Next.js Proxy — 路由保護與角色驗證（Next.js 16，函式必須命名為 proxy）
 import { NextRequest, NextResponse } from 'next/server'
 
 // 公開路由（不需登入）
 const PUBLIC_ROUTES = ['/login']
 
-// 需要主管以上角色的路由
-const SUPERVISOR_ROUTES = ['/admin']
-
-// 需要管理員角色的路由
-const ADMIN_ROUTES = ['/super-admin']
-
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // 取得 session cookie（登入後由 Firebase 設定）
@@ -23,7 +17,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // 已登入 → 不再顯示登入頁
+  // 已登入訪問登入頁 → 導向首頁
   if (sessionCookie && pathname === '/login') {
     return NextResponse.redirect(new URL('/', request.url))
   }
