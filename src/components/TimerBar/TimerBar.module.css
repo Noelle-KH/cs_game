@@ -1,0 +1,84 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ── 標籤列 ──────────────────────────────────────────────────── */
+.labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.label {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-parchment-dark);
+  transition: color var(--transition-fast);
+}
+
+.labelWarning { color: var(--color-warning); }
+.labelDanger  { color: var(--color-maple-red); }
+
+.timeText {
+  font-family: var(--font-pixel);
+  font-size: var(--text-md);
+  color: var(--color-warm-orange);
+  letter-spacing: 0.1em;
+  transition: color var(--transition-fast);
+}
+
+.timeWarning { color: var(--color-warning); }
+.timeDanger  {
+  color: var(--color-maple-red);
+  animation: blink-red 0.5s steps(2, end) infinite;
+}
+
+/* ── 進度條軌道 ──────────────────────────────────────────────── */
+.track {
+  height: 14px;
+  background: var(--color-dark-panel);
+  border: 2px solid var(--color-warm-orange);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── 填充條 ──────────────────────────────────────────────────── */
+.fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-maple-red), var(--color-warm-orange));
+  transition: width 1s linear, background 0.5s ease;
+  position: relative;
+}
+
+/* 填充條右側光暈效果 */
+.fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.fillWarning {
+  background: linear-gradient(90deg, var(--color-amber), var(--color-warning));
+}
+
+.fillDanger {
+  background: var(--color-maple-red);
+  animation: blink-red 0.5s steps(2, end) infinite;
+}
+
+/* ── 刻度線 ──────────────────────────────────────────────────── */
+.tick {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
