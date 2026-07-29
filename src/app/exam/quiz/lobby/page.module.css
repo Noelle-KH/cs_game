@@ -1,0 +1,406 @@
+/* ── 基礎 Layout ──────────────────────────────────────────────── */
+.loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 導覽列 ─────────────────────────────────────────────────────── */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-8);
+  border-bottom: 3px solid var(--color-warm-orange);
+  background: var(--color-dark-panel);
+  box-shadow: 0 2px 0 var(--color-maple-dark);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.navTitle {
+  font-size: var(--text-lg);
+}
+
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.backBtn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+}
+
+.playerName {
+  font-family: var(--font-pixel);
+  font-size: var(--text-sm);
+  color: var(--color-parchment-dark);
+}
+
+.logoutBtn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+}
+
+/* ── 主內容區 ──────────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  padding: var(--space-8) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* ── Hero 標題 ──────────────────────────────────────────────────── */
+.hero {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.heroIcon {
+  font-size: 4rem;
+  animation: float-pixel 2.5s steps(4, end) infinite;
+  filter: drop-shadow(0 0 16px rgba(204, 61, 61, 0.5));
+}
+
+.heroTitle {
+  font-size: var(--text-2xl);
+}
+
+.heroSub {
+  font-size: var(--text-base);
+  color: var(--color-gray-3);
+}
+
+/* ── 雙欄 Grid ──────────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+/* ── 共用 Panel 標題 ──────────────────────────────────────────── */
+.panelTitle {
+  font-size: var(--text-lg);
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid rgba(244, 162, 74, 0.3);
+  margin-bottom: var(--space-6);
+}
+
+/* ── 考試規則面板 ─────────────────────────────────────────────── */
+.rulesPanel {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ruleList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ruleItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid var(--color-warm-orange);
+  transition: background var(--transition-fast);
+}
+
+.ruleItem:hover {
+  background: rgba(244, 162, 74, 0.08);
+}
+
+.ruleIcon {
+  font-size: var(--text-lg);
+  flex-shrink: 0;
+  width: 1.8rem;
+  text-align: center;
+}
+
+.ruleLabel {
+  display: block;
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-warm-orange);
+  margin-bottom: var(--space-1);
+}
+
+.ruleValue {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--color-parchment-dark);
+  line-height: 1.5;
+}
+
+/* ── 最高分顯示 ──────────────────────────────────────────────── */
+.bestScoreBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  background: rgba(244, 162, 74, 0.08);
+  border: 2px solid var(--color-warm-orange);
+  margin-top: var(--space-2);
+}
+
+.bestScoreLabel {
+  font-family: var(--font-pixel);
+  font-size: var(--text-sm);
+  color: var(--color-parchment);
+}
+
+.bestScoreValue {
+  font-size: var(--text-2xl);
+}
+
+.passed {
+  color: var(--color-success);
+  text-shadow: 2px 2px 0px rgba(76, 175, 80, 0.4);
+}
+
+.failed {
+  color: var(--color-maple-red);
+  text-shadow: 2px 2px 0px rgba(204, 61, 61, 0.4);
+}
+
+/* ── 開始按鈕 ─────────────────────────────────────────────────── */
+.startBtn {
+  width: 100%;
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--text-md);
+  margin-top: var(--space-2);
+  position: relative;
+  overflow: hidden;
+}
+
+.startBtn:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.startBtn:not(:disabled):hover::after {
+  transform: translateX(100%);
+}
+
+.startBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: var(--shadow-pixel-sm) !important;
+}
+
+.startingText {
+  animation: blink-red 0.8s steps(2, end) infinite;
+}
+
+/* ── 歷史成績面板 ─────────────────────────────────────────────── */
+.historyPanel {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.historyCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid transparent;
+  transition: transform var(--transition-snap), border-color var(--transition-fast);
+  position: relative;
+}
+
+.historyCard:hover {
+  transform: translateX(4px);
+}
+
+.cardPassed {
+  background: rgba(76, 175, 80, 0.06);
+  border-color: rgba(76, 175, 80, 0.3);
+}
+
+.cardFailed {
+  background: rgba(244, 67, 54, 0.06);
+  border-color: rgba(244, 67, 54, 0.2);
+}
+
+.historyRank {
+  font-size: var(--text-xl);
+  width: 2rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.historyInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.historyDate {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+}
+
+.historyCorrect {
+  font-size: var(--text-sm);
+  color: var(--color-parchment-dark);
+}
+
+.historyScoreWrap {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.historyScore {
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+
+.scorePassed {
+  color: var(--color-success);
+}
+
+.scoreFailed {
+  color: var(--color-maple-red);
+}
+
+.historyUnit {
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+}
+
+.historyBadge {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  padding: 2px var(--space-2);
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.badgePassed {
+  color: var(--color-success);
+  border-color: var(--color-success);
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.badgeFailed {
+  color: var(--color-maple-red);
+  border-color: var(--color-maple-red);
+  background: rgba(204, 61, 61, 0.1);
+}
+
+/* ── 無歷史資料 ──────────────────────────────────────────────── */
+.emptyHistory {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-12);
+  color: var(--color-gray-3);
+  font-family: var(--font-pixel);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.emptyHint {
+  font-size: var(--text-xs);
+  color: var(--color-gray-4);
+}
+
+/* ── 備注區 ──────────────────────────────────────────────────── */
+.historyNote {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(244, 162, 74, 0.15);
+  text-align: center;
+}
+
+.noteText {
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+  font-style: italic;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .navbar {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .navTitle {
+    font-size: var(--text-base);
+  }
+
+  .playerName {
+    display: none;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+
+  .heroTitle {
+    font-size: var(--text-xl);
+  }
+
+  .heroIcon {
+    font-size: 3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .historyCard {
+    flex-wrap: wrap;
+  }
+
+  .historyScoreWrap {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+  }
+}
