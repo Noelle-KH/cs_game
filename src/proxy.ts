@@ -4,8 +4,14 @@ import { NextRequest, NextResponse } from 'next/server'
 // 公開路由（不需登入）
 const PUBLIC_ROUTES = ['/login']
 
+// ⚠️ 開發模式：跳過所有 auth 驗證，方便 UI 預覽
+const IS_DEV = process.env.NODE_ENV === 'development'
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // ⚠️ 開發模式：直接放行，不驗證 auth
+  if (IS_DEV) return NextResponse.next()
 
   // 取得 session cookie（登入後由 Firebase 設定）
   const sessionCookie = request.cookies.get('__session')?.value

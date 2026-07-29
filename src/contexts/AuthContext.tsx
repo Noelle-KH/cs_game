@@ -35,7 +35,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    // ⚠️ 開發保護：Firebase 未設定完成時，2 秒後強制結束 loading
+    // 讓頁面的 DEV_MOCK_USER 可以套用（生產環境 Firebase 正常時會在 2 秒內觸發）
+    const devFallback = setTimeout(() => {
+      if (process.env.NODE_ENV === 'development') {
+        setLoading(false)
+      }
+    }, 2000)
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      clearTimeout(devFallback)
       setUser(firebaseUser)
       if (firebaseUser) {
         await fetchUserDoc(firebaseUser.uid)
@@ -44,7 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false)
     })
-    return () => unsubscribe()
+
+    return () => {
+      clearTimeout(devFallback)
+      unsubscribe()
+    }
   }, [])
 
   async function signInWithGoogle() {
