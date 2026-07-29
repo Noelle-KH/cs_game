@@ -10,10 +10,10 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：🚧 Phase 1 進行中（Auth 系統完成，考試流程待開發）
+**專案階段**：🚧 Phase 1 進行中（綜合模式考試閉環完成，申論模式待開發）
 **分支**：`feat/phase1-auth`
 **PRD 版本**：v1.1
-**最後更新**：2026-07-28
+**最後更新**：2026-07-29
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.1）
@@ -28,31 +28,57 @@
 - [x] 登入頁面（`/login`）
 - [x] 首次設定顯示名稱頁面（`/setup`）
 - [x] 首頁大廳（`/`，含綜合/申論模式卡片）
-- [x] Dev server 啟動確認（http://localhost:3000）
+- [x] Dev 環境 auth bypass（proxy.ts + AuthContext timeout + mock user）
+- [x] 共用假題庫 `src/lib/mockData.ts` + SessionStorage 工具 `src/lib/examSession.ts`
+- [x] `TimerBar` 共用元件（`src/components/TimerBar/`）
+- [x] 綜合模式考試大廳（`/exam/quiz/lobby`）
+- [x] 綜合模式作答頁（`/exam/quiz/[examId]`，含計時、選擇題/問答題）
+- [x] 成績結果頁（`/exam/quiz/[examId]/result`）
+- [x] 錯題回顧頁（`/exam/quiz/[examId]/review`）
+- [x] React state-in-render bug 修復（setter callback 不含 side effect）
 
 ### 下次待辦
-- [ ] **Firebase Console 設定**：建立專案、啟用 Google Auth、建立 Firestore
-- [ ] **填寫 `.env.local`**：從 Firebase Console 複製設定值
-- [ ] 綜合模式考試大廳頁面（`/exam/quiz/lobby`）
-- [ ] 綜合模式作答頁面（`/exam/quiz/[examId]`）
-- [ ] 每題倒數計時元件（TimerBar）
-- [ ] 選擇題 / 問答題作答元件
+- [ ] Phase 2：申論模式大廳（`/exam/essay/lobby`）
+- [ ] Phase 2：申論模式作答頁（`/exam/essay/[examId]`，每題 10 分鐘）
+- [ ] 或：先接 Firebase 真實資料（替換 mockData + examSession → Firestore）
 
 ### 尚未開始
-- [ ] Phase 1：專案初始化（Next.js + Firebase 設定）
-- [ ] Phase 1：Google OAuth 登入流程
-- [ ] Phase 1：首次登入顯示名稱設定頁
-- [ ] Phase 1：綜合模式考試流程（含計時）
-- [ ] Phase 1：交卷結果頁 + 錯題回顧
 - [ ] Phase 1：成績匯出至 Google Sheets
-- [ ] Phase 2：申論模式作答流程
-- [ ] Phase 2：主管批改後台
-- [ ] Phase 3：排行榜頁面
+- [ ] Phase 2：主管批改後台（`/admin/grade`）
+- [ ] Phase 3：排行榜頁面（`/leaderboard`）
+- [ ] Phase 3：個人成績頁（`/profile/results`）
 - [ ] Phase 3：像素風格精緻化
 
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-07-29 | 綜合模式完整考試流程（假資料）
+
+**負責人**：AI  
+**開發時長**：約 3 小時
+
+#### ✅ 今日完成
+- Dev 環境 auth bypass（proxy.ts + AuthContext timeout + 頁面 mock user）
+- 共用假題庫 `src/lib/mockData.ts`（8 題：5 選擇 + 3 問答）
+- SessionStorage 工具 `src/lib/examSession.ts`（模擬 Firestore 讀寫）
+- `TimerBar` 共用元件（`src/components/TimerBar/`，含警示/危險色階）
+- 綜合模式考試大廳 `/exam/quiz/lobby`（假歷史成績、開始按鈕）
+- 綜合模式作答頁 `/exam/quiz/[examId]`（計時、選擇題/問答題、超時自動換題）
+- 成績結果頁 `/exam/quiz/[examId]/result`（分數動畫、4 項統計）
+- 錯題回顧頁 `/exam/quiz/[examId]/review`（篩選、選項正解對照、問答題參考答案）
+
+#### ⚠️ 遭遇問題
+- Next.js 16 Client Component 動態路由需用 `use(params)` 解包 Promise
+- Firebase `onAuthStateChanged` 在 config 未設定時不觸發，需加 2 秒 timeout fallback
+- React 報錯：在 state setter callback 內呼叫 `router.push()`，導致「Cannot update Router while rendering ExamPage」；修復方式：將計時器拆為兩個獨立 effect，用 render-time ref 同步最新 state，在 `phase=saving` 的 useEffect 內才呼叫導頁
+
+#### ⏭️ 下次開始
+1. Phase 2：申論模式大廳 `/exam/essay/lobby`
+2. Phase 2：申論模式作答頁 `/exam/essay/[examId]`（每題 10 分鐘、同時只能一場）
+3. 或視情況優先接 Firebase 真實資料
 
 ---
 
