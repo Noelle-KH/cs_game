@@ -1,0 +1,272 @@
+'use client'
+
+import { use, useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { MOCK_ESSAY_QUESTIONS } from '@/lib/mockData'
+import {
+  saveEssaySession,
+  setEssayLock,
+  getEssayLock,
+} from '@/lib/examSession'
+import TimerBar from '@/components/TimerBar'
+import styles from './page.module.css'
+
+// 申論每題 600 秒（10 分鐘），DEV 模式縮短為 60 秒
+const TIME_PER_QUESTION = 600
+const IS_DEV = process.env.NODE_ENV === 'development'
+const DEV_TIME = 60
+const DEV_MOCK_DISPLAY_NAME = '開發測試員'
+
+export default function EssayExamPage({
+  params,
+}: {
+  params: Promise<{ examId: string }>
+}) {
+  const { examId } = use(params)
+  const { userDoc, loading } = useAuth()
+  const router = useRouter()
+
+  const [currentIdx, setCurrentIdx] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [timeLeft, setTimeLeft] = useState(IS_DEV ? DEV_TIME : TIME_PER_QUESTION)
+  const [phase, setPhase] = useState<'exam' | 'saving'>('exam')
+  const [expiredSet, setExpiredSet] = useState<Set<string>>(new Set())
+
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const savedRef = useRef(false)
+
+  // 永遠指向最新 state 的 ref（避免 stale closure）
+  const answersRef = useRef(answers)
+  const expiredSetRef = useRef(expiredSet)
+  const currentIdxRef = useRef(currentIdx)
+  answersRef.current = answers
+  expiredSetRef.current = expiredSet
+  currentIdxRef.current = currentIdx
+
+  const questions = MOCK_ESSAY_QUESTIONS
+  const currentQ = questions[currentIdx]
+  const displayName = userDoc?.displayName ?? (IS_DEV && !loading ? DEV_MOCK_DISPLAY_NAME : '')
+
+  // 檢查是否有合法的 lock（防止直接輸入網址進入）
+  useEffect(() => {
+    const lock = getEssayLock()
+    if (!lock && !IS_DEV) {
+      router.replace('/exam/essay/lobby')
+    }
+  }, [examId, router])
+
+  // ── phase === 'saving' 時儲存並導頁 ──────────────────────────
+  useEffect(() => {
+    if (phase !== 'saving' || savedRef.current) return
+    savedRef.current = true
+
+    const finalAnswers = answersRef.current
+    const finalExpired = expiredSetRef.current
+
+    saveEssaySession({
+      examId,
+      mode: 'essay',
+      displayName: displayName || DEV_MOCK_DISPLAY_NAME,
+      status: 'submitted',
+      submittedAt: new Date().toISOString(),
+      answers: questions.map((q) => ({
+        questionId: q.id,
+        userAnswer: finalAnswers[q.id] ?? '',
+        timeExpired: finalExpired.has(q.id),
+      })),
+    })
+
+    // 保持 lock（待主管批改後才清除）
+    setEssayLock(examId)
+
+    router.push(`/exam/essay/${examId}/result`)
+  }, [phase, examId, displayName, questions, router])
+
+  // ── 計時器 ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'exam') return
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft((t) => Math.max(0, t - 1))
+    }, 1000)
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [currentIdx, phase])
+
+  // ── 超時偵測 ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'exam' || timeLeft > 0) return
+
+    if (timerRef.current) clearInterval(timerRef.current)
+
+    const expiredId = questions[currentIdxRef.current]?.id
+    if (expiredId) {
+      setExpiredSet((prev) => {
+        const next = new Set(prev)
+        next.add(expiredId)
+        return next
+      })
+    }
+
+    const nextIdx = currentIdxRef.current + 1
+    if (nextIdx >= questions.length) {
+      setPhase('saving')
+    } else {
+      setCurrentIdx(nextIdx)
+      setTimeLeft(IS_DEV ? DEV_TIME : TIME_PER_QUESTION)
+    }
+  }, [timeLeft, phase, questions])
+
+  // ── 手動作答提交 ──────────────────────────────────────────────
+  function handleSubmitAnswer() {
+    if (timerRef.current) clearInterval(timerRef.current)
+
+    const nextIdx = currentIdx + 1
+    if (nextIdx >= questions.length) {
+      setPhase('saving')
+    } else {
+      setCurrentIdx(nextIdx)
+      setTimeLeft(IS_DEV ? DEV_TIME : TIME_PER_QUESTION)
+    }
+  }
+
+  function handleAnswerInput(value: string) {
+    setAnswers((prev) => ({ ...prev, [currentQ.id]: value }))
+  }
+
+  // ── Loading / Saving 畫面 ─────────────────────────────────────
+  if (loading && !IS_DEV) {
+    return (
+      <div className={styles.loading}>
+        <p className="pixel-title">載入考試中...</p>
+      </div>
+    )
+  }
+
+  if (phase === 'saving') {
+    return (
+      <div className={styles.loading}>
+        <p className="pixel-title animate-float">📨 提交中，請稍候...</p>
+      </div>
+    )
+  }
+
+  // ── 考試主畫面 ────────────────────────────────────────────────
+  const currentAnswer = answers[currentQ.id] ?? ''
+  const hasAnswer = currentAnswer.trim().length > 0
+  const isLastQuestion = currentIdx === questions.length - 1
+  const wordCount = currentAnswer.length
+  const timeTotal = IS_DEV ? DEV_TIME : TIME_PER_QUESTION
+
+  return (
+    <main className={`pixel-bg ${styles.main}`}>
+      {/* 頂部 Navbar */}
+      <nav className={styles.navbar}>
+        <span className={`pixel-title ${styles.navMode}`}>📝 申論模式</span>
+        <div className={styles.navProgress}>
+          {questions.map((_, i) => (
+            <div
+              key={i}
+              className={`${styles.progressDot} ${
+                i < currentIdx ? styles.dotDone :
+                i === currentIdx ? styles.dotCurrent :
+                styles.dotPending
+              }`}
+            />
+          ))}
+        </div>
+        <span className={styles.navPlayer}>👤 {displayName}</span>
+      </nav>
+
+      {/* 題號 Banner */}
+      <div className={styles.questionBanner}>
+        <span className={styles.questionNum}>
+          第 <strong>{currentIdx + 1}</strong> 題
+          <span className={styles.questionTotal}> / {questions.length}</span>
+        </span>
+        <span className={styles.questionType}>申論題</span>
+        <span className={styles.questionDiff}>
+          {currentQ.difficulty === 'basic' ? '⭐ 基礎' : currentQ.difficulty === 'medium' ? '⭐⭐ 中階' : '⭐⭐⭐ 進階'}
+        </span>
+      </div>
+
+      <div className={`container ${styles.content}`}>
+        {/* 題目區塊 */}
+        <section className={`pixel-panel ${styles.questionPanel}`}>
+          {currentQ.context && (
+            <div className={styles.contextBox}>
+              <span className={styles.contextLabel}>📋 情境</span>
+              <p className={styles.contextText}>{currentQ.context}</p>
+            </div>
+          )}
+          <div className={styles.questionContent}>
+            <p className={styles.questionText}>{currentQ.content}</p>
+          </div>
+        </section>
+
+        {/* 作答區塊 */}
+        <section className={`pixel-panel ${styles.answerPanel}`}>
+          <div className={styles.answerHeader}>
+            <h2 className={`pixel-title ${styles.answerTitle}`}>✏️ 申論作答</h2>
+            <div className={styles.answerHints}>
+              <span className={styles.hintChip}>主管親自批改</span>
+              <span className={styles.hintChip}>每題滿分 10 分</span>
+            </div>
+          </div>
+
+          <div className={styles.textareaWrap}>
+            <textarea
+              id="textarea-essay"
+              className={styles.essayTextarea}
+              placeholder="請輸入你的申論內容。建議包含：情況分析、處理步驟、溝通技巧與注意事項…"
+              value={currentAnswer}
+              onChange={(e) => handleAnswerInput(e.target.value)}
+              rows={10}
+            />
+            <div className={styles.wordCountBar}>
+              <span className={`${styles.wordCount} ${wordCount < 50 ? styles.wordCountLow : styles.wordCountOk}`}>
+                {wordCount} 字
+              </span>
+              {wordCount < 50 && wordCount > 0 && (
+                <span className={styles.wordHint}>建議至少 50 字以獲得更好評分</span>
+              )}
+              {wordCount === 0 && (
+                <span className={styles.wordHint}>請輸入至少一個字後才能提交</span>
+              )}
+            </div>
+          </div>
+
+          <button
+            id="btn-submit-answer"
+            className={`btn-pixel btn-secondary ${styles.submitBtn} ${!hasAnswer ? styles.submitDisabled : ''}`}
+            onClick={handleSubmitAnswer}
+            disabled={!hasAnswer}
+          >
+            {isLastQuestion ? '📨 完成作答並提交' : '確認作答 →'}
+          </button>
+
+          <p className={styles.submitNote}>
+            {isLastQuestion
+              ? '⚠️ 提交後即進入等待批改狀態，完成前無法開始新場次'
+              : '作答後點擊確認，計時器將重置至下一題'}
+          </p>
+        </section>
+
+        {/* 計時器 */}
+        <div className={styles.timerWrap}>
+          <TimerBar
+            timeLeft={timeLeft}
+            totalTime={timeTotal}
+            showLabel
+          />
+          {IS_DEV && (
+            <p className={styles.devBadge}>⚠️ DEV MODE：每題 {DEV_TIME} 秒（正式每題 10 分鐘）</p>
+          )}
+        </div>
+      </div>
+    </main>
+  )
+}

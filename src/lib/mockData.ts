@@ -133,3 +133,111 @@ export const MOCK_QUESTIONS: QuestionDoc[] = [
 export const MOCK_QUESTIONS_MAP = Object.fromEntries(
   MOCK_QUESTIONS.map((q) => [q.id, q])
 )
+
+// ── 申論模式假題庫（待接 Firestore 後移除） ────────────────────────
+export const MOCK_ESSAY_QUESTIONS: QuestionDoc[] = [
+  {
+    id: 'eq-001',
+    type: 'essay',
+    difficulty: 'basic',
+    context: '你剛接手一位等待超過 20 分鐘的客戶，客戶情緒明顯不耐煩，且不斷重複「你們公司根本沒有效率」。',
+    content: '請描述你如何開場，並在前 2 分鐘內穩定客戶情緒，同時取得客戶信任以順利進行後續服務。',
+    enabled: true,
+    sourceId: 'sheet-eq-001',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'eq-002',
+    type: 'essay',
+    difficulty: 'basic',
+    context: '客戶來電詢問訂單出貨狀態，系統顯示「配送中」，但客戶表示已超過預計送達日期 3 天仍未收到。',
+    content: '請說明你的完整處理流程，包含資訊確認、內部協調與對客戶的回覆方式，並說明每個步驟的目的。',
+    enabled: true,
+    sourceId: 'sheet-eq-002',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'eq-003',
+    type: 'essay',
+    difficulty: 'medium',
+    context: '客戶購買的電子產品在使用一個月後發生故障，要求全額退款，但公司政策規定超過 30 天只提供維修服務。客戶表示產品根本是瑕疵品，拒絕接受維修，態度強硬。',
+    content: '你將如何在遵守公司政策的前提下，處理這位客戶的投訴？請詳細說明你的溝通策略、可以提供的替代方案，以及如何引導客戶接受解決方案。',
+    enabled: true,
+    sourceId: 'sheet-eq-003',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'eq-004',
+    type: 'essay',
+    difficulty: 'medium',
+    context: '你在一天之內連續接到 5 位客戶投訴同一個系統功能出現錯誤，但技術部門尚未確認問題，也無法提供預計修復時間。',
+    content: '在技術問題尚未解決的情況下，你如何對每一位客戶進行妥善回覆？請說明你會傳達哪些訊息、如何設定客戶預期，以及後續的跟進機制。',
+    enabled: true,
+    sourceId: 'sheet-eq-004',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'eq-005',
+    type: 'essay',
+    difficulty: 'medium',
+    context: '你服務的客戶是一位老年人，對於操作手機 APP 不熟悉，在電話中多次詢問相同操作步驟，且常常誤解你的說明，通話已進行超過 30 分鐘，後方仍有多位客戶等候。',
+    content: '請說明你在此情況下如何平衡服務品質與通話效率，並描述你會採用哪些溝通技巧幫助客戶理解操作步驟，同時不讓客戶感到被催促或不受重視。',
+    enabled: true,
+    sourceId: 'sheet-eq-005',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'eq-006',
+    type: 'essay',
+    difficulty: 'advanced',
+    context: '客戶反映三個月前反映的問題至今未解決，中間曾接觸過 4 位不同的客服人員，每次都需要重新說明問題。客戶明確表示「下次我直接找媒體投訴」。',
+    content: '請分析此案例暴露的客服流程問題，並提出具體的改善建議。同時說明你在當下通話中會如何處理，以及如何確保這個案件能在你手中徹底結案。',
+    enabled: true,
+    sourceId: 'sheet-eq-006',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'eq-007',
+    type: 'essay',
+    difficulty: 'advanced',
+    context: '公司即將推出新的收費政策，部分舊客戶原本享有的優惠方案將被取消，你負責致電通知這批客戶，預期會有大量不滿情緒。',
+    content: '請設計你在這波外撥通知中的標準話術框架，說明你如何開場、傳達壞消息、處理客戶不滿，以及如何在通話結束時維持客戶對品牌的正面觀感。',
+    enabled: true,
+    sourceId: 'sheet-eq-007',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'eq-008',
+    type: 'essay',
+    difficulty: 'advanced',
+    context: '你注意到同事在處理客戶投訴時，習慣使用「公司規定就是這樣」作為拒絕理由，且態度偏冷漠，已有 2 位客戶針對該同事留下負評。',
+    content: '作為同事而非主管，你如何處理這個情況？請說明你的觀察方式、溝通策略，以及你認為良好客服應具備的核心態度，並對比分析你同事的行為問題所在。',
+    enabled: true,
+    sourceId: 'sheet-eq-008',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'eq-009',
+    type: 'essay',
+    difficulty: 'medium',
+    context: '在高峰時段，你同時處理著一個正在線上等候的客戶，以及一個剛被轉接過來的緊急投訴案件（客戶揚言要立即取消合約）。',
+    content: '請說明你的優先序判斷邏輯，以及你如何在不讓任何一方感到被忽視的情況下，同時處理這兩件事。請具體描述你會對兩位客戶分別說什麼。',
+    enabled: true,
+    sourceId: 'sheet-eq-009',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'eq-010',
+    type: 'essay',
+    difficulty: 'basic',
+    context: '這是你入職客服部門的第一個月。你被要求在月底前提交一份「自我服務品質評估報告」，回顧本月的服務表現。',
+    content: '請撰寫這份評估報告的核心內容，包含：你認為自己做得最好的 2 項能力、最需要改善的 1 項能力，以及下個月的具體改善計畫。請以真實且有深度的方式回答，避免流於表面。',
+    enabled: true,
+    sourceId: 'sheet-eq-010',
+    syncedAt: new Date(),
+  },
+]
+
+export const MOCK_ESSAY_QUESTIONS_MAP = Object.fromEntries(
+  MOCK_ESSAY_QUESTIONS.map((q) => [q.id, q])
+)

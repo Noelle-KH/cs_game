@@ -36,11 +36,13 @@
 - [x] 成績結果頁（`/exam/quiz/[examId]/result`）
 - [x] 錯題回顧頁（`/exam/quiz/[examId]/review`）
 - [x] React state-in-render bug 修復（setter callback 不含 side effect）
+- [x] Phase 2：申論模式大廳（`/exam/essay/lobby`）
+- [x] Phase 2：申論模式作答頁（`/exam/essay/[examId]`，每題 10 分鐘，含 Lock 機制）
+- [x] Phase 2：申論模式結果頁（`/exam/essay/[examId]/result`，等待批改狀態與作答預覽）
 
 ### 下次待辦
-- [ ] Phase 2：申論模式大廳（`/exam/essay/lobby`）
-- [ ] Phase 2：申論模式作答頁（`/exam/essay/[examId]`，每題 10 分鐘）
-- [ ] 或：先接 Firebase 真實資料（替換 mockData + examSession → Firestore）
+- [ ] 串接 Firebase 真實資料（替換 mockData + examSession → Firestore）
+
 
 ### 尚未開始
 - [ ] Phase 1：成績匯出至 Google Sheets
@@ -52,6 +54,38 @@
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-08-03 | 申論模式完整考試流程（假資料）
+
+**負責人**：AI  
+**開發時長**：約 1.5 小時
+
+#### ✅ 今日完成
+- 新增 10 道客服情境申論假題目至 `src/lib/mockData.ts`（`MOCK_ESSAY_QUESTIONS`）
+- 擴充 SessionStorage 工具 `src/lib/examSession.ts`：支援申論考試存取與「同時只能一場」的 `ESSAY_LOCK_KEY` 鎖定機制
+- 申論模式考試大廳 `/exam/essay/lobby`：
+  - 天空藍像素風格（與綜合模式楓葉紅有所區隔）
+  - 本月未提交提醒橫幅
+  - 歷史成績卡片（含「等待批改」與「通過/未通過」狀態）
+  - 當有未批改時場時限制無法開始新考試，並提供 DEV 清除鎖定按鈕
+- 申論模式作答頁 `/exam/essay/[examId]`：
+  - 獨立倒數計時（正式 10 分鐘 / 題，DEV 60 秒 / 題）
+  - 純文字輸入框與即時動態字數統計（低於 50 字提示）
+  - 每題確認作答機制，末題提交後鎖定場次並帶入結果頁
+- 申論模式結果頁 `/exam/essay/[examId]/result`：
+  - 顯示「等待主管批改中」橫幅與提交時間
+  - 作答統計摘要（已答/超時/未答）
+  - 作答內容預覽清單
+  - DEV 模式提供「模擬主管批改完成（清除鎖定）」功能
+
+#### ⚠️ 遭遇問題
+- 無
+
+#### ⏭️ 下次開始
+1. 串接 Firebase 真實資料（替換 mockData + examSession → Firestore 讀寫與 Firebase Functions）
+2. 開發主管批改後台 `/admin/grade`
 
 ---
 

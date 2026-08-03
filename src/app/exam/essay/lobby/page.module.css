@@ -1,0 +1,428 @@
+/* ── Loading ─────────────────────────────────────────────────── */
+.loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── 基礎 Layout ──────────────────────────────────────────────── */
+.main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Navbar ──────────────────────────────────────────────────── */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-8);
+  border-bottom: 3px solid var(--color-sky-blue);
+  background: var(--color-dark-panel);
+  box-shadow: 0 2px 0 var(--color-sky-dark);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: var(--space-4);
+}
+
+.backBtn {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+}
+
+.navTitle {
+  font-size: var(--text-base);
+  color: var(--color-sky-blue);
+  text-shadow: 2px 2px 0px var(--color-sky-dark);
+}
+
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.playerName {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-parchment-dark);
+}
+
+.logoutBtn {
+  font-size: var(--text-xs);
+  padding: var(--space-2) var(--space-3);
+}
+
+/* ── 主內容 ──────────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  padding: var(--space-6) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ── Hero ────────────────────────────────────────────────────── */
+.hero {
+  text-align: center;
+  padding: var(--space-4) 0;
+}
+
+.heroIcon {
+  font-size: 3rem;
+  margin-bottom: var(--space-3);
+  filter: drop-shadow(0 0 12px rgba(91, 164, 207, 0.5));
+  animation: float-pixel 3s steps(4, end) infinite;
+}
+
+.heroTitle {
+  font-size: var(--text-2xl);
+  color: var(--color-sky-blue);
+  text-shadow: 2px 2px 0px var(--color-sky-dark);
+  margin-bottom: var(--space-2);
+}
+
+.heroSub {
+  color: var(--color-parchment-dark);
+  font-size: var(--text-sm);
+}
+
+/* ── 本月提醒 ─────────────────────────────────────────────────── */
+.monthAlert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  background: rgba(255, 152, 0, 0.08);
+  border: 2px solid var(--color-warning);
+  animation: blink-red 2s steps(2, end) 3;
+}
+
+.alertIcon {
+  font-size: var(--text-xl);
+  flex-shrink: 0;
+}
+
+.alertText {
+  font-size: var(--text-sm);
+  color: var(--color-parchment);
+  line-height: 1.6;
+}
+
+.alertText strong {
+  color: var(--color-warning);
+  font-family: var(--font-pixel);
+}
+
+/* ── 鎖定橫幅（進行中場次） ──────────────────────────────────── */
+.lockBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: rgba(91, 164, 207, 0.06);
+  border: 3px solid var(--color-sky-blue);
+  box-shadow: var(--shadow-pixel);
+}
+
+.lockIcon {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 8px rgba(91, 164, 207, 0.4));
+}
+
+.lockInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lockTitle {
+  font-size: var(--text-base);
+  color: var(--color-sky-blue);
+  text-shadow: 1px 1px 0px var(--color-sky-dark);
+}
+
+.lockDesc {
+  font-size: var(--text-xs);
+  color: var(--color-parchment-dark);
+  line-height: 1.8;
+}
+
+.lockDesc code {
+  font-family: monospace;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 4px;
+  border: 1px solid var(--color-gray-4);
+  font-size: 0.6rem;
+}
+
+.lockHint {
+  font-size: var(--text-sm);
+  color: var(--color-gray-3);
+}
+
+.devClearBtn {
+  font-size: var(--text-xs);
+  padding: var(--space-2) var(--space-3);
+  flex-shrink: 0;
+  border-color: var(--color-warning) !important;
+  color: var(--color-warning) !important;
+}
+
+/* ── 雙欄 Grid ───────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+/* ── 規則面板 ────────────────────────────────────────────────── */
+.rulesPanel {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.panelTitle {
+  font-size: var(--text-base);
+  padding-bottom: var(--space-3);
+  border-bottom: 2px solid rgba(91, 164, 207, 0.25);
+  color: var(--color-sky-blue);
+  text-shadow: 1px 1px 0px var(--color-sky-dark);
+}
+
+.ruleList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ruleItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.ruleIcon {
+  font-size: var(--text-base);
+  flex-shrink: 0;
+  width: 1.4rem;
+  text-align: center;
+}
+
+.ruleItem > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ruleLabel {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-sky-blue);
+}
+
+.ruleValue {
+  font-size: var(--text-xs);
+  color: var(--color-parchment-dark);
+  line-height: 1.6;
+}
+
+/* ── 開始按鈕 ────────────────────────────────────────────────── */
+.startBtn {
+  width: 100%;
+  padding: var(--space-4);
+  font-size: var(--text-base);
+  margin-top: auto;
+}
+
+.startDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.startingText {
+  animation: float-pixel 1s steps(4, end) infinite;
+}
+
+.lockHintSmall {
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+  text-align: center;
+}
+
+/* ── 歷史面板 ────────────────────────────────────────────────── */
+.historyPanel {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.emptyHistory {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-8);
+  color: var(--color-gray-3);
+  font-size: var(--text-sm);
+}
+
+.emptyHint {
+  font-size: var(--text-xs);
+  color: var(--color-gray-4);
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.historyCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: rgba(255, 255, 255, 0.02);
+  border: 2px solid var(--color-gray-4);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.cardPassed {
+  border-color: rgba(76, 175, 80, 0.5);
+  background: rgba(76, 175, 80, 0.04);
+}
+
+.cardFailed {
+  border-color: rgba(204, 61, 61, 0.5);
+  background: rgba(204, 61, 61, 0.04);
+}
+
+.cardPending {
+  border-color: rgba(91, 164, 207, 0.5);
+  background: rgba(91, 164, 207, 0.04);
+}
+
+.historyInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.historyDate {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-parchment-dark);
+}
+
+.statusBadge {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  padding: 2px var(--space-2);
+  border: 1px solid;
+}
+
+.badgePassed {
+  color: var(--color-success);
+  border-color: var(--color-success);
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.badgeFailed {
+  color: var(--color-maple-red);
+  border-color: var(--color-maple-red);
+  background: rgba(204, 61, 61, 0.1);
+}
+
+.badgePending {
+  color: var(--color-sky-blue);
+  border-color: var(--color-sky-blue);
+  background: rgba(91, 164, 207, 0.1);
+}
+
+.historyScoreWrap {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.historyScore {
+  font-size: var(--text-xl);
+}
+
+.scorePassed {
+  color: var(--color-success);
+}
+
+.scoreFailed {
+  color: var(--color-maple-red);
+}
+
+.historyUnit {
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+}
+
+.pendingText {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-sky-blue);
+  animation: float-pixel 2s steps(4, end) infinite;
+}
+
+.historyNote {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(91, 164, 207, 0.15);
+}
+
+.noteText {
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+  font-family: var(--font-pixel);
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .navTitle {
+    font-size: var(--text-sm);
+  }
+
+  .playerName {
+    display: none;
+  }
+
+  .lockBanner {
+    flex-direction: column;
+  }
+
+  .heroTitle {
+    font-size: var(--text-xl);
+  }
+}
