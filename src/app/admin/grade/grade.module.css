@@ -1,0 +1,406 @@
+/* 主管批改申論題頁面樣式 */
+.container {
+  min-height: 100vh;
+  background-color: var(--color-dark-bg);
+  color: var(--color-parchment);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-dark-panel);
+  border-bottom: 3px solid var(--color-warm-orange);
+  box-shadow: var(--shadow-pixel-sm);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.backBtn {
+  font-family: var(--font-pixel);
+  font-size: var(--text-sm);
+  color: var(--color-sky-blue);
+  background: rgba(91, 164, 207, 0.1);
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-sky-blue);
+  transition: all var(--transition-snap);
+}
+
+.backBtn:hover {
+  background: var(--color-sky-blue);
+  color: var(--color-white);
+}
+
+.title {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xl);
+  color: var(--color-warm-orange);
+  margin: 0;
+}
+
+.roleBadge {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  background: var(--color-maple-dark);
+  color: var(--color-parchment);
+  padding: 4px 8px;
+  border: 1px solid var(--color-maple-red);
+}
+
+/* Toast 提示條 */
+.toast {
+  background: var(--color-success);
+  color: var(--color-white);
+  padding: var(--space-3) var(--space-6);
+  font-family: var(--font-pixel);
+  font-size: var(--text-sm);
+  text-align: center;
+  border-bottom: 2px solid #2e7d32;
+  animation: slide-down 0.3s ease;
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+/* 主版面劃分 (左側 Sidebar，右側主要內容) */
+.mainLayout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 320px;
+  background: rgba(22, 33, 62, 0.7);
+  border-right: 3px solid var(--color-dark-border);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+}
+
+.sidebarTitle {
+  font-family: var(--font-pixel);
+  font-size: var(--text-md);
+  color: var(--color-sky-blue);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--color-dark-border);
+}
+
+.examList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.examCard {
+  background: var(--color-dark-panel);
+  border: 2px solid var(--color-dark-border);
+  padding: var(--space-3);
+  text-align: left;
+  transition: all var(--transition-snap);
+  cursor: pointer;
+  color: inherit;
+}
+
+.examCard:hover {
+  border-color: var(--color-sky-blue);
+  transform: translateX(4px);
+}
+
+.examCardActive {
+  border-color: var(--color-warm-orange) !important;
+  background: rgba(244, 162, 74, 0.1);
+  box-shadow: var(--shadow-glow-orange);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.examineeName {
+  font-family: var(--font-pixel);
+  font-size: var(--text-sm);
+  color: var(--color-parchment);
+}
+
+.statusBadge {
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.submitted {
+  background: rgba(244, 162, 74, 0.2);
+  color: var(--color-warm-orange);
+  border: 1px solid var(--color-warm-orange);
+}
+
+.graded {
+  background: rgba(76, 175, 80, 0.2);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+.cardMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+}
+
+.scoreText {
+  color: var(--color-warm-orange);
+  font-weight: bold;
+}
+
+/* 右側詳細區 */
+.detailSection {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6);
+  background: var(--color-dark-bg);
+}
+
+.emptyState {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-family: var(--font-pixel);
+  color: var(--color-gray-3);
+  font-size: var(--text-lg);
+}
+
+.detailPanel {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: var(--color-dark-panel);
+  border: 3px solid var(--color-warm-orange);
+  padding: var(--space-4) var(--space-6);
+  box-shadow: var(--shadow-pixel);
+}
+
+.examineeTitle {
+  font-family: var(--font-pixel);
+  font-size: var(--text-lg);
+  color: var(--color-warm-orange);
+  margin-bottom: var(--space-1);
+}
+
+.subDetail {
+  font-size: var(--text-sm);
+  color: var(--color-gray-3);
+}
+
+.statusText.submitted {
+  color: var(--color-warm-orange);
+  font-weight: bold;
+}
+
+.statusText.graded {
+  color: var(--color-success);
+  font-weight: bold;
+}
+
+/* 題目作答清單 */
+.questionsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.questionCard {
+  background: var(--color-dark-panel);
+  border: 2px solid var(--color-dark-border);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-pixel-sm);
+  position: relative;
+}
+
+.qHeader {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-3);
+  border-bottom: 1px dashed var(--color-dark-border);
+  padding-bottom: var(--space-2);
+}
+
+.qIndex {
+  font-family: var(--font-pixel);
+  font-size: var(--text-md);
+  color: var(--color-sky-blue);
+}
+
+.qDifficulty {
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+}
+
+.expiredBadge {
+  font-size: var(--text-xs);
+  color: var(--color-maple-red);
+  font-weight: bold;
+}
+
+.qContext {
+  background: rgba(0, 0, 0, 0.2);
+  padding: var(--space-3);
+  border-left: 3px solid var(--color-warm-orange);
+  font-size: var(--text-sm);
+  color: var(--color-parchment-dark);
+  margin-bottom: var(--space-3);
+}
+
+.qContent {
+  font-size: var(--text-base);
+  color: var(--color-parchment);
+  margin-bottom: var(--space-4);
+  line-height: 1.5;
+}
+
+.userAnswerBox {
+  background: #0f172a;
+  border: 2px solid #1e293b;
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.answerBoxLabel {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-sky-blue);
+  margin-bottom: var(--space-2);
+}
+
+.userAnswerText {
+  font-size: var(--text-sm);
+  color: #e2e8f0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.noAnswer {
+  color: var(--color-gray-3);
+  font-style: italic;
+}
+
+/* 主管評分區 */
+.gradingBox {
+  background: rgba(244, 162, 74, 0.05);
+  border: 2px solid rgba(244, 162, 74, 0.3);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.scoreRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.scoreLabel {
+  font-family: var(--font-pixel);
+  font-size: var(--text-sm);
+  color: var(--color-warm-orange);
+}
+
+.scoreInputGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.scoreInput {
+  width: 70px;
+  padding: var(--space-2);
+  font-family: var(--font-pixel);
+  font-size: var(--text-md);
+  text-align: center;
+  background: var(--color-dark-bg);
+  color: var(--color-warm-orange);
+  border: 2px solid var(--color-warm-orange);
+  outline: none;
+}
+
+.scoreMax {
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+}
+
+.commentRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.commentLabel {
+  font-family: var(--font-pixel);
+  font-size: var(--text-sm);
+  color: var(--color-sky-blue);
+}
+
+.commentTextarea {
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--color-dark-bg);
+  color: var(--color-parchment);
+  border: 2px solid var(--color-dark-border);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  resize: vertical;
+  outline: none;
+}
+
+.commentTextarea:focus {
+  border-color: var(--color-sky-blue);
+}
+
+.panelFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+  padding-bottom: var(--space-8);
+}
+
+/* 響應式調整 */
+@media (max-width: 900px) {
+  .mainLayout {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    height: 220px;
+    border-right: none;
+    border-bottom: 3px solid var(--color-dark-border);
+  }
+}

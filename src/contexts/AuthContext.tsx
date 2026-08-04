@@ -13,6 +13,7 @@ interface AuthContextType {
   role: UserRole | null
   loading: boolean
   signInWithGoogle: () => Promise<void>
+  devBypassLogin: () => void
   logout: () => Promise<void>
   refreshUserDoc: () => Promise<void>
 }
@@ -81,6 +82,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await fetchUserDoc(user.uid)
   }
 
+  function devBypassLogin() {
+    // 建立 mock 用戶
+    const mockUser = {
+      uid: 'dev-mock-uid-001',
+      email: 'dev_hero@example.com',
+      displayName: '客服測試勇者',
+    } as unknown as User
+    
+    const mockDoc: UserDoc = {
+      uid: 'dev-mock-uid-001',
+      email: 'dev_hero@example.com',
+      displayName: '客服測試勇者',
+      role: 'examinee',
+      createdAt: new Date(),
+      lastLoginAt: new Date(),
+    }
+
+    setUser(mockUser)
+    setUserDoc(mockDoc)
+    setLoading(false)
+  }
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -88,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: userDoc?.role ?? null,
       loading,
       signInWithGoogle,
+      devBypassLogin,
       logout,
       refreshUserDoc,
     }}>

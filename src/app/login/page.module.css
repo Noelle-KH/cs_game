@@ -98,6 +98,12 @@
   gap: var(--space-3);
 }
 
+.devBypassBtn {
+  width: 100%;
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--text-sm);
+}
+
 /* ── 版本標記 ── */
 .version {
   font-family: var(--font-pixel);

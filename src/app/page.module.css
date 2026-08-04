@@ -9,6 +9,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: var(--color-dark-bg);
 }
 
 /* ── 導覽列 ── */
@@ -25,8 +26,47 @@
   z-index: 100;
 }
 
+.navLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
 .navTitle {
   font-size: var(--text-lg);
+  color: var(--color-warm-orange);
+}
+
+.roleToggleGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px 8px;
+  border: 1px solid var(--color-dark-border);
+}
+
+.roleLabel {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+}
+
+.roleBtn {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  background: transparent;
+  color: var(--color-gray-3);
+  border: 1px solid transparent;
+  transition: all var(--transition-snap);
+}
+
+.roleActive {
+  background: var(--color-warm-orange);
+  color: var(--color-black);
+  border-color: var(--color-amber);
+  font-weight: bold;
 }
 
 .navRight {
@@ -49,46 +89,110 @@
 /* ── 主內容 ── */
 .content {
   flex: 1;
-  padding: var(--space-12) var(--space-4);
+  padding: var(--space-8) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-12);
+  gap: var(--space-8);
+  max-width: 960px;
+  margin: 0 auto;
 }
 
-/* ── 歡迎標語 ── */
-.heroSection {
-  text-align: center;
+/* ── NPC 對話對話框 ── */
+.npcBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  background: var(--color-dark-panel);
+  border: 3px solid var(--color-sky-blue);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-pixel);
+}
+
+.npcAvatarBox {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  align-items: center;
+  min-width: 90px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: var(--space-3);
+  border: 2px solid var(--color-dark-border);
 }
 
-.heroTitle {
-  font-size: var(--text-2xl);
+.npcPixelArt {
+  font-size: 2.5rem;
+  animation: float-pixel 2s steps(2, end) infinite;
 }
 
-.heroSub {
-  color: var(--color-gray-3);
-  font-size: var(--text-base);
+.npcName {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-sky-blue);
+  margin-top: var(--space-2);
 }
 
-/* ── 模式選擇 ── */
+.dialogBox {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dialogHeader {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-warm-orange);
+}
+
+.dialogText {
+  font-size: var(--text-sm);
+  color: var(--color-parchment);
+  line-height: 1.6;
+}
+
+/* ── 月度任務提示條 ── */
+.noticeBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: rgba(204, 61, 61, 0.15);
+  border: 2px solid var(--color-maple-red);
+  padding: var(--space-3) var(--space-5);
+  box-shadow: var(--shadow-pixel-sm);
+}
+
+.noticeIcon {
+  font-size: 1.5rem;
+}
+
+.noticeContent {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--color-parchment-dark);
+}
+
+/* ── 模式選擇區 ── */
+.sectionTitle {
+  font-size: var(--text-md);
+  color: var(--color-warm-orange);
+  margin-bottom: var(--space-4);
+  text-align: left;
+}
+
 .modeGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: var(--space-8);
-  max-width: 800px;
-  margin: 0 auto;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-6);
   width: 100%;
 }
 
 .modeCard {
-  padding: var(--space-8) var(--space-6);
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
   text-align: center;
+  position: relative;
   transition: transform var(--transition-snap);
 }
 
@@ -96,19 +200,44 @@
   transform: translateY(-4px);
 }
 
+.modeBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--color-maple-red);
+  color: var(--color-white);
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  border: 1px solid var(--color-maple-dark);
+}
+
+.modeBadgeBlue {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--color-sky-blue);
+  color: var(--color-white);
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  border: 1px solid var(--color-sky-dark);
+}
+
 .modeIcon {
-  font-size: 3rem;
+  font-size: 2.8rem;
+  margin-top: var(--space-2);
   filter: drop-shadow(0 0 8px rgba(244, 162, 74, 0.4));
 }
 
 .modeName {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
 }
 
 .modeDesc {
   font-size: var(--text-sm);
   color: var(--color-gray-3);
-  line-height: 1.8;
+  line-height: 1.6;
 }
 
 .modeFeatures {
@@ -117,24 +246,30 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  background: rgba(0, 0, 0, 0.2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-dark-border);
 }
 
 .modeFeatures li {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--color-parchment-dark);
   text-align: left;
 }
 
 .startBtn {
   width: 100%;
-  padding: var(--space-4);
+  padding: var(--space-3);
   margin-top: var(--space-2);
 }
 
-/* ── 快捷連結 ── */
+/* ── 快捷與主管選單 ── */
+.portalSection {
+  margin-top: var(--space-4);
+}
+
 .quickLinks {
   display: flex;
-  justify-content: center;
   gap: var(--space-4);
   flex-wrap: wrap;
 }
@@ -144,21 +279,39 @@
   font-size: var(--text-sm);
 }
 
+.adminBtn {
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--text-sm);
+  background: var(--color-warm-orange);
+  color: var(--color-black);
+  border-color: var(--color-amber);
+}
+
+.adminBtn:hover {
+  background: var(--color-amber);
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .navbar {
     padding: var(--space-3) var(--space-4);
+    flex-direction: column;
+    gap: var(--space-3);
   }
-  .navTitle {
-    font-size: var(--text-base);
+  .navLeft {
+    width: 100%;
+    justify-content: space-between;
   }
-  .playerName {
-    display: none;
+  .npcBanner {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .noticeBanner {
+    flex-direction: column;
+    text-align: center;
   }
   .modeGrid {
     grid-template-columns: 1fr;
-  }
-  .heroTitle {
-    font-size: var(--text-xl);
   }
 }

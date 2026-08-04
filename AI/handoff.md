@@ -10,10 +10,10 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：🚧 Phase 1 進行中（綜合模式考試閉環完成，申論模式待開發）
+**專案階段**：🚧 Phase 2 進行中（申論批改後台介面完成）
 **分支**：`feat/phase1-auth`
 **PRD 版本**：v1.1
-**最後更新**：2026-07-29
+**最後更新**：2026-08-04
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.1）
@@ -27,7 +27,7 @@
 - [x] globals.css 像素風格 Design Token 系統
 - [x] 登入頁面（`/login`）
 - [x] 首次設定顯示名稱頁面（`/setup`）
-- [x] 首頁大廳（`/`，含綜合/申論模式卡片）
+- [x] 首頁大廳（`/`，含綜合/申論模式卡片與主管批改快捷按鈕）
 - [x] Dev 環境 auth bypass（proxy.ts + AuthContext timeout + mock user）
 - [x] 共用假題庫 `src/lib/mockData.ts` + SessionStorage 工具 `src/lib/examSession.ts`
 - [x] `TimerBar` 共用元件（`src/components/TimerBar/`）
@@ -39,14 +39,14 @@
 - [x] Phase 2：申論模式大廳（`/exam/essay/lobby`）
 - [x] Phase 2：申論模式作答頁（`/exam/essay/[examId]`，每題 10 分鐘，含 Lock 機制）
 - [x] Phase 2：申論模式結果頁（`/exam/essay/[examId]/result`，等待批改狀態與作答預覽）
+- [x] Phase 2：主管批改後台（`/admin/grade`，支援作答檢視、逐題評分打分、評語填寫與解鎖）
 
 ### 下次待辦
 - [ ] 串接 Firebase 真實資料（替換 mockData + examSession → Firestore）
+- [ ] Phase 1：成績匯出至 Google Sheets
 
 
 ### 尚未開始
-- [ ] Phase 1：成績匯出至 Google Sheets
-- [ ] Phase 2：主管批改後台（`/admin/grade`）
 - [ ] Phase 3：排行榜頁面（`/leaderboard`）
 - [ ] Phase 3：個人成績頁（`/profile/results`）
 - [ ] Phase 3：像素風格精緻化
@@ -54,6 +54,32 @@
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-08-04 | 主管申論批改後台與大廳 UX 升級
+
+**負責人**：AI  
+**開發時長**：約 2.5 小時
+
+#### ✅ 今日完成
+- 開發主管批改後台頁面 [`/admin/grade`](file:///C:/Users/iexs1/OneDrive/%E6%96%87%E4%BB%B6/Program/cs_game/src/app/admin/grade/page.tsx) 及專用樣式模組 [`grade.module.css`](file:///C:/Users/iexs1/OneDrive/%E6%96%87%E4%BB%B6/Program/cs_game/src/app/admin/grade/grade.module.css)。
+- 支援考卷動態載入：自動抓取考生的 Session 考卷資料（例如剛剛考完的申論題）以及模擬考卷清單。
+- 實現評分與評語互動：主管可針對每題進行 0-10 分打分、輸入給考生的個別指導評語。
+- 實現自動計分與考卷解鎖機制：送出批改後自動計算總分與是否通過（≥90分），並清除了考生的申論考試鎖定（Essay Lock），方便考生繼續體驗後續流程。
+- 全面升級首頁大廳 [`page.tsx`](file:///C:/Users/iexs1/OneDrive/%E6%96%87%E4%BB%B6/Program/cs_game/src/app/page.tsx) UX 體驗：
+  - 新增導覽列 **考生 / 主管視角切換器**（Role Toggle Group），切換至主管時自動顯示管理選單。
+  - 新增 **楓之谷 NPC「教官 皮卡丘」像素對話框** 與動態冒險提醒。
+  - 新增 **本月申論任務完成/待審核狀態警示條**。
+- 在登入頁面 [`/login`](file:///C:/Users/iexs1/OneDrive/%E6%96%87%E4%BB%B6/Program/cs_game/src/app/login/page.tsx) 新增 **`🚀 [DEV] 模擬免登入進大廳`** 按鈕，方便快速測試整個系統流程。
+- 通過 `npm run build` 與 TypeScript 型別檢查驗證。
+
+#### ⚠️ 遭遇問題
+- Next.js Client Component 需顯式宣告 `'use client'`（已修復）。
+
+#### ⏭️ 下次開始
+1. 串接 Firebase 真實資料（替換 mockData + examSession → Firestore 讀寫與 Firebase Functions）
+2. 實現成績自動寫入 / 匯出至 Google Sheets 功能
 
 ---
 

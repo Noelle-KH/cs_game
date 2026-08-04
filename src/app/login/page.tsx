@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import styles from './page.module.css'
 
 export default function LoginPage() {
-  const { user, userDoc, loading, signInWithGoogle } = useAuth()
+  const { user, userDoc, loading, signInWithGoogle, devBypassLogin } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -71,6 +71,15 @@ export default function LoginPage() {
         >
           <GoogleIcon />
           以 Google 帳號登入
+        </button>
+
+        {/* 快速模擬登入按鈕（開發測試免登入） */}
+        <button
+          id="btn-dev-bypass"
+          className={`btn-pixel btn-secondary ${styles.devBypassBtn}`}
+          onClick={devBypassLogin}
+        >
+          🚀 [DEV] 模擬免登入進大廳
         </button>
 
         {/* 版本標記 */}
