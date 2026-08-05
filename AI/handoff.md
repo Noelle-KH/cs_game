@@ -10,10 +10,10 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：🚧 Phase 2 進行中（申論批改後台介面完成）
+**專案階段**：🚧 Phase 2 & 3 前端介面完備（題庫管理、排行榜、個人成績與主管進度總覽）
 **分支**：`feat/phase1-auth`
 **PRD 版本**：v1.1
-**最後更新**：2026-08-04
+**最後更新**：2026-08-05
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.1）
@@ -40,20 +40,57 @@
 - [x] Phase 2：申論模式作答頁（`/exam/essay/[examId]`，每題 10 分鐘，含 Lock 機制）
 - [x] Phase 2：申論模式結果頁（`/exam/essay/[examId]/result`，等待批改狀態與作答預覽）
 - [x] Phase 2：主管批改後台（`/admin/grade`，支援作答檢視、逐題評分打分、評語填寫與解鎖）
+- [x] 題庫匯入規劃與 Excel 標準範本生成（`public/question_import_template.xlsx`，含原生 Data Validation 下拉選單）
+- [x] Phase 2：題庫管理與 Excel 匯入/編輯/軟刪除後台（`/admin/questions`）
+- [x] Phase 3：冒險排行榜頁面（`/leaderboard`，支援綜合最高分榜與申論榮譽榜）
+- [x] Phase 3：個人歷史成績與錯題記錄頁（`/profile/results`，支援統計摘要與申論評語檢視）
+- [x] Phase 3：主管專屬團隊考核進度與狀況總覽（`/admin/users`）
+- [x] 客製化像素風格二次確認彈窗（`ConfirmModal`，應用於離開考試防誤觸）
 
 ### 下次待辦
-- [ ] 串接 Firebase 真實資料（替換 mockData + examSession → Firestore）
+- [ ] 串接 Firebase 真實資料（替換 mockData + examSession + questionStore + historyStore → Firestore）
 - [ ] Phase 1：成績匯出至 Google Sheets
 
-
 ### 尚未開始
-- [ ] Phase 3：排行榜頁面（`/leaderboard`）
-- [ ] Phase 3：個人成績頁（`/profile/results`）
-- [ ] Phase 3：像素風格精緻化
+- [ ] Phase 3：像素風格精緻化與動效強化
 
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-08-05 | 題庫 Excel 匯入/編輯後台、排行榜、個人成績與主管團隊總覽頁面開發
+
+**負責人**：AI  
+**開發時長**：約 3.5 小時
+
+#### ✅ 今日完成
+1. **標準 Excel 題庫模板產生**：
+   - 使用 `exceljs` 自動於 `public/question_import_template.xlsx` 生成含有原生 Data Validation 下拉選單（`type`, `difficulty`, `enabled`, `answer`）的規範 Excel 範本。
+2. **題庫管理後台 (`/admin/questions`)**：
+   - 支援題型/難易度/關鍵字篩選、線上單筆 Modal 編輯/新增、單鍵切換啟用與軟刪除機制。
+   - 支援 **Excel 批量匯入 (追加模式 Append / 比對更新模式 Upsert)**，且具備智慧比對（優先 `id`，備案 `type + content`）。
+   - 全面優化暗色系與高對比點陣配色（標題藍/橘/綠/紫 Badge 與焦點光暈）。
+3. **冒險排行榜 (`/leaderboard`)**：
+   - 提供「綜合刷題高分榜」與「申論榮譽榜」雙頁籤切換，以及前三名金銀銅牌頒獎台視覺展現。
+4. **個人歷史成績與錯題/閱卷檢視 (`/profile/results`)**：
+   - 提供 4 項統計指標（累計場數、PASS數、通過率、最高分）與詳細考卷列表。
+   - 申論題結果頁 (`/exam/essay/[examId]/result`) 支援主管批改後動態展示分數 (0-10) 與個別指導評語。
+5. **主管權限與團隊考核進度總覽 (`/admin/users`)**：
+   - 主管大廳隱藏考題測驗，增設「團隊考核狀況與進度總覽」後台，顯示團隊人數、當月申論完成/待批改/未提交狀態與累計考次。
+6. **自訂像素點陣確認彈窗 (`ConfirmModal`)**：
+   - 替換預設 `window.confirm`，在兩大考試模式中提供安全離開考場的防誤觸對話框。
+7. 通過 `npx tsc --noEmit` 型別檢查與測試。
+
+#### ⚠️ 遭遇問題
+- **SheetJS 下拉選單相容性**：改用 `exceljs` 解決原生 Excel Data Validation 相容性。
+- **React 重複 key 警告**：`addHistoryRecord` 加入 ID 嚴格過濾去重修復。
+- **Quiz 導頁缺漏狀態**：補齊 `setSession(effective)` 修復交卷後卡在載入畫面的問題。
+
+#### ⏭️ 下次開始
+1. 串接 Firebase 真實資料（將模擬存取轉寫為 Firestore 讀寫）
+2. 實現成績自動寫入 / 匯出至 Google Sheets 功能
 
 ---
 

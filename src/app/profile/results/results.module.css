@@ -1,0 +1,119 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+  font-family: var(--font-pixel);
+  color: var(--color-parchment, #fdf6e3);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 3px dashed var(--color-warm-orange, #f4a24a);
+}
+
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.titleText {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--color-warm-orange, #f4a24a);
+  text-shadow: 2px 2px 0px #000;
+}
+
+.subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.navBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 16px;
+  background-color: #1e293b;
+  border: 2px solid #64748b;
+  color: #f8fafc;
+  font-family: var(--font-pixel);
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 2px 2px 0px #000;
+  transition: transform var(--transition-snap), box-shadow var(--transition-snap);
+}
+
+.navBtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #000;
+  border-color: var(--color-warm-orange, #f4a24a);
+}
+
+/* 個人統計卡片 */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.statCard {
+  background-color: #16213e;
+  border: 3px solid var(--color-warm-orange, #f4a24a);
+  padding: var(--space-4);
+  text-align: center;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+}
+
+.statTitle {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.statNumber {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #f4a24a;
+}
+
+/* 歷史成績表格 */
+.tableContainer {
+  overflow-x: auto;
+  border: 3px solid var(--color-warm-orange, #f4a24a);
+  background-color: #0f172a;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+}
+
+.historyTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.historyTable th {
+  background-color: #1e293b;
+  color: var(--color-warm-orange, #f4a24a);
+  border-bottom: 3px solid var(--color-warm-orange, #f4a24a);
+  padding: 12px 14px;
+  font-weight: bold;
+}
+
+.historyTable td {
+  border-bottom: 1px solid #334155;
+  padding: 12px 14px;
+}
+
+.historyTable tr:nth-child(even) {
+  background-color: #16213e;
+}

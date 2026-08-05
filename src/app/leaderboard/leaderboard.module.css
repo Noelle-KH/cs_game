@@ -1,0 +1,165 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+  font-family: var(--font-pixel);
+  color: var(--color-parchment, #fdf6e3);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 3px dashed var(--color-warm-orange, #f4a24a);
+}
+
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.titleText {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--color-warm-orange, #f4a24a);
+  text-shadow: 2px 2px 0px #000;
+}
+
+.subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.navBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 16px;
+  background-color: #1e293b;
+  border: 2px solid #64748b;
+  color: #f8fafc;
+  font-family: var(--font-pixel);
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 2px 2px 0px #000;
+  transition: transform var(--transition-snap), box-shadow var(--transition-snap);
+}
+
+.navBtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #000;
+  border-color: var(--color-warm-orange, #f4a24a);
+}
+
+/* 頁籤切換 */
+.tabs {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  border-bottom: 2px solid #334155;
+  padding-bottom: var(--space-2);
+}
+
+.tabBtn {
+  padding: 10px 20px;
+  background-color: #1e293b;
+  border: 2px solid #475569;
+  color: #94a3b8;
+  font-family: var(--font-pixel);
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 3px 3px 0px #000;
+  transition: all var(--transition-snap);
+}
+
+.tabBtn:hover {
+  color: #f8fafc;
+  border-color: var(--color-warm-orange, #f4a24a);
+}
+
+.activeTab {
+  background-color: var(--color-maple-red, #cc3d3d);
+  color: #ffffff;
+  border-color: #f87171;
+  box-shadow: 0 0 10px rgba(204, 61, 61, 0.6);
+}
+
+/* 排行榜列表卡片 */
+.podiumSection {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.podiumCard {
+  background: #16213e;
+  border: 3px solid var(--color-warm-orange, #f4a24a);
+  padding: var(--space-4);
+  text-align: center;
+  position: relative;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+}
+
+.podiumCardRank1 {
+  border-color: #f59e0b;
+  background: linear-gradient(180deg, #1e293b 0%, #312e81 100%);
+}
+
+.rankBadge {
+  font-size: 2rem;
+  margin-bottom: var(--space-2);
+}
+
+.playerName {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #f8fafc;
+  margin-bottom: 4px;
+}
+
+.scoreText {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #4ade80;
+}
+
+/* 表格區 */
+.tableContainer {
+  overflow-x: auto;
+  border: 3px solid var(--color-warm-orange, #f4a24a);
+  background-color: #0f172a;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+}
+
+.leaderboardTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.leaderboardTable th {
+  background-color: #1e293b;
+  color: var(--color-warm-orange, #f4a24a);
+  border-bottom: 3px solid var(--color-warm-orange, #f4a24a);
+  padding: 12px 14px;
+  font-weight: bold;
+}
+
+.leaderboardTable td {
+  border-bottom: 1px solid #334155;
+  padding: 12px 14px;
+}
+
+.leaderboardTable tr:nth-child(even) {
+  background-color: #16213e;
+}

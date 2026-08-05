@@ -61,19 +61,39 @@ export default function EssayResultPage({
         {/* ── 主卡片 ── */}
         <div className={`pixel-panel animate-slide-in ${styles.resultCard}`}>
 
-          {/* 等待批改 Banner */}
-          <div className={styles.pendingBanner}>
-            <div className={styles.bannerIconWrap}>
-              <span className={styles.bannerIcon}>📨</span>
+          {/* 通過 / 未通過 / 等待批改 Banner */}
+          {session.status === 'graded' ? (
+            <div className={`${styles.pendingBanner} ${session.answers.reduce((acc, a) => acc + (a.score || 0), 0) >= 90 ? styles.bannerPassed : styles.bannerFailed}`}>
+              <div className={styles.bannerIconWrap}>
+                <span className={styles.bannerIcon}>
+                  {session.answers.reduce((acc, a) => acc + (a.score || 0), 0) >= 90 ? '🏆' : '📝'}
+                </span>
+              </div>
+              <div className={styles.bannerTextWrap}>
+                <p className={`pixel-title ${styles.bannerTitle}`}>
+                  主管已完成閱卷批改！ (總得分：{session.answers.reduce((acc, a) => acc + (a.score || 0), 0)} / 100)
+                </p>
+                <p className={styles.bannerSub}>
+                  {session.answers.reduce((acc, a) => acc + (a.score || 0), 0) >= 90
+                    ? '恭喜通過本月申論考核！請於下方查看主管針對各題給予的指導評語。'
+                    : '本月申論分數未達 90 分通過門檻，請仔細檢視主管評語與改進建議。'}
+                </p>
+              </div>
             </div>
-            <div className={styles.bannerTextWrap}>
-              <p className={`pixel-title ${styles.bannerTitle}`}>申論已成功提交！</p>
-              <p className={styles.bannerSub}>
-                你的作答已送出，正在等待主管批改評分。<br />
-                批改完成後你將收到系統通知，請耐心等候。
-              </p>
+          ) : (
+            <div className={styles.pendingBanner}>
+              <div className={styles.bannerIconWrap}>
+                <span className={styles.bannerIcon}>📨</span>
+              </div>
+              <div className={styles.bannerTextWrap}>
+                <p className={`pixel-title ${styles.bannerTitle}`}>申論已成功提交！</p>
+                <p className={styles.bannerSub}>
+                  你的作答已送出，正在等待主管批改評分。<br />
+                  批改完成後你將收到系統通知，請耐心等候。
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 時間戳 */}
           <div className={styles.timestampRow}>

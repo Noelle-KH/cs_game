@@ -10,7 +10,7 @@ export default function HomePage() {
   const { user, userDoc, loading, logout } = useAuth()
   const router = useRouter()
 
-  // 模擬狀態
+  // 模擬角色切換（方便開發測試視角）
   const [currentRole, setCurrentRole] = useState<'examinee' | 'supervisor'>('examinee')
   const [hasEssayLock, setHasEssayLock] = useState<boolean>(false)
 
@@ -87,7 +87,7 @@ export default function HomePage() {
             <p className={styles.dialogText}>
               {currentRole === 'examinee'
                 ? `歡迎來到星光冒險營！${displayName}，今天的客服考核準備好了嗎？完成綜合與申論模式提升你的實戰能力吧！`
-                : `歡迎主管！在此您可以批改考生的申論題、追蹤考試記錄與管理團隊實力。`}
+                : `歡迎主管！在此您可以批改考生的申論題、追蹤全體考生的考核進度與維護系統題庫。`}
             </p>
           </div>
         </section>
@@ -111,57 +111,59 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* 模式選擇卡片區域 */}
-        <section className={styles.modeSection}>
-          <h2 className={`pixel-title ${styles.sectionTitle}`}>⚔️ 冒險考核模式</h2>
-          <div className={styles.modeGrid}>
-            {/* 綜合模式卡片 */}
-            <div className={`pixel-panel ${styles.modeCard}`}>
-              <div className={styles.modeBadge}>無限刷題</div>
-              <div className={styles.modeIcon}>⚔️</div>
-              <h3 className={`pixel-title ${styles.modeName}`}>綜合模式</h3>
-              <p className={styles.modeDesc}>
-                選擇題 + 問答題混合出題<br />
-                20 題 · 每題 5 分鐘 · 即時評分
-              </p>
-              <ul className={styles.modeFeatures}>
-                <li>✅ 交卷後立即試算出總分</li>
-                <li>✅ 附帶詳細錯題解析對照</li>
-                <li>✅ 可多次刷題，排行榜採最高分</li>
-              </ul>
-              <button
-                id="btn-start-quiz"
-                className={`btn-pixel btn-primary ${styles.startBtn}`}
-                onClick={() => router.push('/exam/quiz/lobby')}
-              >
-                進入綜合大廳 →
-              </button>
-            </div>
+        {/* 模式選擇卡片區域（僅考生顯示，主管不需要參加考核） */}
+        {currentRole === 'examinee' && (
+          <section className={styles.modeSection}>
+            <h2 className={`pixel-title ${styles.sectionTitle}`}>⚔️ 冒險考核模式</h2>
+            <div className={styles.modeGrid}>
+              {/* 綜合模式卡片 */}
+              <div className={`pixel-panel ${styles.modeCard}`}>
+                <div className={styles.modeBadge}>無限刷題</div>
+                <div className={styles.modeIcon}>⚔️</div>
+                <h3 className={`pixel-title ${styles.modeName}`}>綜合模式</h3>
+                <p className={styles.modeDesc}>
+                  選擇題 + 問答題混合出題<br />
+                  20 題 · 每題 5 分鐘 · 即時評分
+                </p>
+                <ul className={styles.modeFeatures}>
+                  <li>✅ 交卷後立即試算出總分</li>
+                  <li>✅ 附帶詳細錯題解析對照</li>
+                  <li>✅ 可多次刷題，排行榜採最高分</li>
+                </ul>
+                <button
+                  id="btn-start-quiz"
+                  className={`btn-pixel btn-primary ${styles.startBtn}`}
+                  onClick={() => router.push('/exam/quiz/lobby')}
+                >
+                  進入綜合大廳 →
+                </button>
+              </div>
 
-            {/* 申論模式卡片 */}
-            <div className={`pixel-panel ${styles.modeCard}`}>
-              <div className={styles.modeBadgeBlue}>月度必考</div>
-              <div className={styles.modeIcon}>📝</div>
-              <h3 className={`pixel-title ${styles.modeName}`}>申論模式</h3>
-              <p className={styles.modeDesc}>
-                模擬實務客服真實情境<br />
-                10 題 · 每題 10 分鐘 · 主管人工審核
-              </p>
-              <ul className={styles.modeFeatures}>
-                <li>📋 主管針對應答進行評分與評語</li>
-                <li>🔒 一次只能進行一場申論考試</li>
-                <li>📅 批改完成後解鎖並通知成果</li>
-              </ul>
-              <button
-                id="btn-start-essay"
-                className={`btn-pixel btn-secondary ${styles.startBtn}`}
-                onClick={() => router.push('/exam/essay/lobby')}
-              >
-                {hasEssayLock ? '查看申論狀況 →' : '進入申論考場 →'}
-              </button>
+              {/* 申論模式卡片 */}
+              <div className={`pixel-panel ${styles.modeCard}`}>
+                <div className={styles.modeBadgeBlue}>月度必考</div>
+                <div className={styles.modeIcon}>📝</div>
+                <h3 className={`pixel-title ${styles.modeName}`}>申論模式</h3>
+                <p className={styles.modeDesc}>
+                  模擬實務客服真實情境<br />
+                  10 題 · 每題 10 分鐘 · 主管人工審核
+                </p>
+                <ul className={styles.modeFeatures}>
+                  <li>📋 主管針對應答進行評分與評語</li>
+                  <li>🔒 一次只能進行一場申論考試</li>
+                  <li>📅 批改完成後解鎖並通知成果</li>
+                </ul>
+                <button
+                  id="btn-start-essay"
+                  className={`btn-pixel btn-secondary ${styles.startBtn}`}
+                  onClick={() => router.push('/exam/essay/lobby')}
+                >
+                  {hasEssayLock ? '查看申論狀況 →' : '進入申論考場 →'}
+                </button>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* 功能入口及主管專屬區域 */}
         <section className={styles.portalSection}>
@@ -169,7 +171,7 @@ export default function HomePage() {
             {currentRole === 'supervisor' ? '👑 主管管理選單' : '📊 冒險成就與統計'}
           </h2>
           <div className={styles.quickLinks}>
-            {/* 全員功能 */}
+            {/* 全員共通：查看排行榜 */}
             <button
               id="btn-leaderboard"
               className={`btn-pixel btn-ghost ${styles.quickBtn}`}
@@ -177,23 +179,43 @@ export default function HomePage() {
             >
               🏆 冒險排行榜
             </button>
-            <button
-              id="btn-my-results"
-              className={`btn-pixel btn-ghost ${styles.quickBtn}`}
-              onClick={() => router.push('/profile/results')}
-            >
-              📊 我的歷次成績與錯題
-            </button>
 
-            {/* 主管視角下高亮顯示批改入口 */}
-            {currentRole === 'supervisor' && (
+            {/* 僅考生顯示：我的歷次成績與錯題 */}
+            {currentRole === 'examinee' && (
               <button
-                id="btn-admin-grade"
-                className={`btn-pixel btn-primary ${styles.adminBtn}`}
-                onClick={() => router.push('/admin/grade')}
+                id="btn-my-results"
+                className={`btn-pixel btn-ghost ${styles.quickBtn}`}
+                onClick={() => router.push('/profile/results')}
               >
-                👑 審核與批改申論題 (Grade)
+                📊 我的歷次成績與錯題
               </button>
+            )}
+
+            {/* 主管專屬：批改、團隊進度追蹤與題庫管理 */}
+            {currentRole === 'supervisor' && (
+              <>
+                <button
+                  id="btn-admin-grade"
+                  className={`btn-pixel btn-primary ${styles.adminBtn}`}
+                  onClick={() => router.push('/admin/grade')}
+                >
+                  👑 審核與批改申論題 (Grade)
+                </button>
+                <button
+                  id="btn-admin-users"
+                  className={`btn-pixel btn-secondary ${styles.adminBtn}`}
+                  onClick={() => router.push('/admin/users')}
+                >
+                  👥 團隊考核狀況與進度總覽 (Users)
+                </button>
+                <button
+                  id="btn-admin-questions"
+                  className={`btn-pixel btn-ghost ${styles.adminBtn}`}
+                  onClick={() => router.push('/admin/questions')}
+                >
+                  📚 題庫管理與 Excel 匯入 (Questions)
+                </button>
+              </>
             )}
           </div>
         </section>

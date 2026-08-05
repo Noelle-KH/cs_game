@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { loadExamSession, ExamSession } from '@/lib/examSession'
+import { addHistoryRecord } from '@/lib/historyStore'
 import styles from './page.module.css'
 
 const IS_DEV = process.env.NODE_ENV === 'development'
@@ -26,6 +27,21 @@ export default function ResultPage({
     // DEV fallback：若無 session，產生一筆假的
     const effective = data ?? MOCK_SESSION(examId)
     setSession(effective)
+
+    // 雙向記錄至 historyStore
+    if (effective) {
+      addHistoryRecord({
+        id: effective.examId,
+        mode: 'quiz',
+        displayName: effective.displayName || '客服勇者',
+        score: effective.score,
+        maxScore: effective.maxScore,
+        passed: effective.passed,
+        status: 'graded',
+        date: new Date(effective.submittedAt || Date.now()).toLocaleString('zh-TW', { hour12: false }).slice(0, 16),
+        details: effective
+      })
+    }
     // 分數動畫：短暫延遲後顯示
     const t = setTimeout(() => setShowScore(true), 400)
     return () => clearTimeout(t)

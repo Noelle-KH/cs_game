@@ -10,6 +10,7 @@ import {
   getEssayLock,
 } from '@/lib/examSession'
 import TimerBar from '@/components/TimerBar'
+import ConfirmModal from '@/components/ConfirmModal'
 import styles from './page.module.css'
 
 // 申論每題 600 秒（10 分鐘），DEV 模式縮短為 60 秒
@@ -161,11 +162,33 @@ export default function EssayExamPage({
   const wordCount = currentAnswer.length
   const timeTotal = IS_DEV ? DEV_TIME : TIME_PER_QUESTION
 
+  const [showExitConfirm, setShowExitConfirm] = useState(false)
+
   return (
     <main className={`pixel-bg ${styles.main}`}>
+      {/* 自訂像素離開確認彈窗 */}
+      <ConfirmModal
+        isOpen={showExitConfirm}
+        title="⚠️ 離開申論特訓考場確認"
+        message="確定要放棄並離開申論考試嗎？未提交的內容將不會被記錄。"
+        confirmText="🚪 確定放棄離開"
+        cancelText="📝 繼續申論作答"
+        onConfirm={() => router.push('/exam/essay/lobby')}
+        onCancel={() => setShowExitConfirm(false)}
+      />
+
       {/* 頂部 Navbar */}
       <nav className={styles.navbar}>
-        <span className={`pixel-title ${styles.navMode}`}>📝 申論模式</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            className="btn-pixel btn-ghost"
+            style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+            onClick={() => setShowExitConfirm(true)}
+          >
+            🚪 離開考試
+          </button>
+          <span className={`pixel-title ${styles.navMode}`}>📝 申論模式</span>
+        </div>
         <div className={styles.navProgress}>
           {questions.map((_, i) => (
             <div

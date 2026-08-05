@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { MOCK_QUESTIONS } from '@/lib/mockData'
 import { saveExamSession, ExamSessionAnswer } from '@/lib/examSession'
 import TimerBar from '@/components/TimerBar'
+import ConfirmModal from '@/components/ConfirmModal'
 import styles from './page.module.css'
 
 const TIME_PER_QUESTION = 300
@@ -165,11 +166,33 @@ export default function ExamPage({
   const hasAnswer = currentAnswer.trim().length > 0
   const isLastQuestion = currentIdx === questions.length - 1
 
+  const [showExitConfirm, setShowExitConfirm] = useState(false)
+
   return (
     <main className={`pixel-bg ${styles.main}`}>
+      {/* 自訂像素離開確認彈窗 */}
+      <ConfirmModal
+        isOpen={showExitConfirm}
+        title="⚠️ 離開綜合模式考場確認"
+        message="確定要離開考試嗎？未提交的作答進度與成績將不會被記錄。"
+        confirmText="🚪 確定離開"
+        cancelText="⚔️ 繼續挑戰"
+        onConfirm={() => router.push('/exam/quiz/lobby')}
+        onCancel={() => setShowExitConfirm(false)}
+      />
+
       {/* 頂部 Navbar */}
       <nav className={styles.navbar}>
-        <span className={`pixel-title ${styles.navMode}`}>⚔️ 綜合模式</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            className="btn-pixel btn-ghost"
+            style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+            onClick={() => setShowExitConfirm(true)}
+          >
+            🚪 離開考試
+          </button>
+          <span className={`pixel-title ${styles.navMode}`}>⚔️ 綜合模式</span>
+        </div>
         <div className={styles.navProgress}>
           {questions.map((_, i) => (
             <div
