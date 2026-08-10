@@ -194,8 +194,26 @@ export default function AdminGradePage() {
     // 清除考生端的申論 Lock 鎖定，模擬主管批改完畢開放考生重新考申論題
     clearEssayLock()
 
+    // 自動寫入 / 匯出至 Google Sheets
+    fetch('/api/export-score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentExam.email || 'examinee@example.com',
+        displayName: currentExam.displayName || '申論考生',
+        date: new Date().toLocaleString('zh-TW', { hour12: false }),
+        mode: 'essay',
+        score: finalScore,
+        maxScore: 100,
+        passed: isPassed,
+        attemptCount: 1,
+      })
+    }).then(res => res.json())
+      .then(resData => console.log('📊 [Essay Score Sheet Sync]', resData))
+      .catch(err => console.error('📊 [Essay Score Sheet Sync Error]', err))
+
     // 顯示成功提示
-    showToast(`✅ 批改完成！考生成績：${finalScore} 分 (${isPassed ? '通過' : '未通過'})。已解鎖考生申論權限與模擬發送通知。`)
+    showToast(`✅ 批改完成！考生成績：${finalScore} 分 (${isPassed ? '通過' : '未通過'})。已自動將成績同步至 Google Sheets。`)
   }
 
   const showToast = (msg: string) => {

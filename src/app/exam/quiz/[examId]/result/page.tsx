@@ -41,6 +41,24 @@ export default function ResultPage({
         date: new Date(effective.submittedAt || Date.now()).toLocaleString('zh-TW', { hour12: false }).slice(0, 16),
         details: effective
       })
+
+      // 自動觸發寫入 / 匯出至 Google Sheets
+      fetch('/api/export-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'examinee@example.com', // 未來串接 Auth 時帶入真實 Auth Email
+          displayName: effective.displayName || '客服勇者',
+          date: new Date(effective.submittedAt || Date.now()).toLocaleString('zh-TW', { hour12: false }),
+          mode: 'quiz',
+          score: effective.score,
+          maxScore: effective.maxScore,
+          passed: effective.passed,
+          attemptCount: 1,
+        })
+      }).then(res => res.json())
+        .then(resData => console.log('📊 [GoogleSheets Sync]', resData))
+        .catch(err => console.error('📊 [GoogleSheets Sync Error]', err))
     }
     // 分數動畫：短暫延遲後顯示
     const t = setTimeout(() => setShowScore(true), 400)

@@ -10,10 +10,10 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：🚧 Phase 2 & 3 前端介面完備（題庫管理、排行榜、個人成績與主管進度總覽）
+**專案階段**：🚧 成績自動寫入 / 匯出至 Google Sheets 已完成，準備串接 Firebase 真實資料
 **分支**：`feat/phase1-auth`
 **PRD 版本**：v1.1
-**最後更新**：2026-08-05
+**最後更新**：2026-08-10
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.1）
@@ -46,10 +46,10 @@
 - [x] Phase 3：個人歷史成績與錯題記錄頁（`/profile/results`，支援統計摘要與申論評語檢視）
 - [x] Phase 3：主管專屬團隊考核進度與狀況總覽（`/admin/users`）
 - [x] 客製化像素風格二次確認彈窗（`ConfirmModal`，應用於離開考試防誤觸）
+- [x] Phase 1：成績自動寫入 / 匯出至 Google Sheets（`src/lib/googleSheets.ts` 與 `/api/export-score`）
 
 ### 下次待辦
 - [ ] 串接 Firebase 真實資料（替換 mockData + examSession + questionStore + historyStore → Firestore）
-- [ ] Phase 1：成績匯出至 Google Sheets
 
 ### 尚未開始
 - [ ] Phase 3：像素風格精緻化與動效強化
@@ -57,6 +57,31 @@
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-08-10 | 成績自動寫入 / 匯出至 Google Sheets 功能開發
+
+**負責人**：AI  
+**開發時長**：約 1 小時
+
+#### ✅ 今日完成
+1. **Google Sheets 寫入核心庫 (`src/lib/googleSheets.ts`)**：
+   - 使用 `googleapis` JWT Service Account 認證機制，實現將成績列自動追加 (`append`) 至試算表的功能。
+   - 符合 `architecture.md` 欄位規範：`Email | 顯示名稱 | 考試日期 | 模式 | 得分 | 總分 | 得分率 | 是否通過 | 累計考試次數`。
+2. **成績匯出 API Route (`/api/export-score`)**：
+   - 建立伺服器端端點 `/api/export-score`，支援驗證欄位、計算得分率與相容性處置。
+   - 內建未配置環境變數時的 DEV 模擬降級機制（Console log 警告），確保無環境變數時系統依然能順暢運行不崩潰。
+3. **綜合模式與申論批改整合**：
+   - 綜合模式結果頁 [`/exam/quiz/[examId]/result`](file:///C:/Users/iexs1/OneDrive/%E6%96%87%E4%BB%B6/Program/cs_game/src/app/exam/quiz/%5BexamId%5D/result/page.tsx)：考生交卷瀏覽成績時自動觸發 API 匯出成績。
+   - 主管申論批改後台 [`/admin/grade`](file:///C:/Users/iexs1/OneDrive/%E6%96%87%E4%BB%B6/Program/cs_game/src/app/admin/grade/page.tsx)：主管提交評分與評語時，自動計算總分並呼叫 API 寫入 Google Sheets。
+4. 通過 `npx tsc --noEmit` 型別檢查。
+
+#### ⚠️ 遭遇問題
+- 無
+
+#### ⏭️ 下次開始
+1. 串接 Firebase 真實資料（將模擬存取轉寫為 Firestore 讀寫與權限規範）
 
 ---
 
