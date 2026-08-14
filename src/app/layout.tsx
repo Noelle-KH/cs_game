@@ -13,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-TW">
-      <body className="pixel-bg">
+    <html lang="zh-TW" suppressHydrationWarning>
+      <body className="pixel-bg" suppressHydrationWarning>
         <AuthProvider>
           {children}
         </AuthProvider>

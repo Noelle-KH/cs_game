@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { loadExamSession, ExamSession, ExamSessionAnswer } from '@/lib/examSession'
-import { MOCK_QUESTIONS, MOCK_QUESTIONS_MAP } from '@/lib/mockData'
+import { getStoredQuestions } from '@/lib/questionStore'
 import { QuestionDoc } from '@/types'
 import styles from './page.module.css'
 
@@ -39,17 +39,24 @@ export default function ReviewPage({
     )
   }
 
-  // 組合：answer record + question doc
+  // 取得目前系統庫中的所有題目 Map
+  const storedQuestions = getStoredQuestions()
+  const storedMap = new Map(storedQuestions.map((q) => [q.id, q]))
+
+  // 組合：answer record + question doc（優先從 ans.questionDoc 讀取，若無則從 storedMap 查找）
   const reviewed = session.answers
-    .map((ans) => ({
-      ans,
-      q: MOCK_QUESTIONS_MAP[ans.questionId] as QuestionDoc | undefined,
-    }))
+    .map((ans) => {
+      const qDoc = ans.questionDoc || storedMap.get(ans.questionId)
+      return {
+        ans,
+        q: qDoc as QuestionDoc | undefined,
+      }
+    })
     .filter((item) => item.q !== undefined) as { ans: ExamSessionAnswer; q: QuestionDoc }[]
 
-  // 篩選
+  // 篩選（包含選擇題答錯與問答題未吻合正解答錯）
   const filtered = reviewed.filter((item) => {
-    if (filter === 'wrong') return item.q.type === 'choice' && !item.ans.isCorrect
+    if (filter === 'wrong') return item.ans.isCorrect === false
     if (filter === 'expired') return item.ans.timeExpired
     return true
   })
@@ -59,8 +66,9 @@ export default function ReviewPage({
 
   function getStatusLabel(item: { ans: ExamSessionAnswer; q: QuestionDoc }) {
     if (item.ans.timeExpired) return { text: '⏱️ 超時', cls: styles.statusExpired }
+    if (item.ans.isCorrect === true) return { text: '✅ 答對', cls: styles.statusCorrect }
+    if (item.ans.isCorrect === false) return { text: '❌ 答錯', cls: styles.statusWrong }
     if (item.q.type === 'qa') return { text: '✏️ 問答', cls: styles.statusQa }
-    if (item.ans.isCorrect) return { text: '✅ 答對', cls: styles.statusCorrect }
     return { text: '❌ 答錯', cls: styles.statusWrong }
   }
 
@@ -84,7 +92,7 @@ export default function ReviewPage({
               className={`${styles.filterBtn} ${filter === f ? styles.filterActive : ''}`}
               onClick={() => { setFilter(f); setSelectedIdx(0) }}
             >
-              {f === 'all' ? `全部 (${reviewed.length})` : f === 'wrong' ? `答錯 (${reviewed.filter(i => i.q.type === 'choice' && !i.ans.isCorrect).length})` : `超時 (${reviewed.filter(i => i.ans.timeExpired).length})`}
+              {f === 'all' ? `全部 (${reviewed.length})` : f === 'wrong' ? `答錯 (${reviewed.filter(i => i.ans.isCorrect === false).length})` : `超時 (${reviewed.filter(i => i.ans.timeExpired).length})`}
             </button>
           ))}
         </div>

@@ -13,7 +13,7 @@ interface AuthContextType {
   role: UserRole | null
   loading: boolean
   signInWithGoogle: () => Promise<void>
-  devBypassLogin: () => void
+  devBypassLogin: (asRole?: UserRole) => void
   logout: () => Promise<void>
   refreshUserDoc: () => Promise<void>
 }
@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function fetchUserDoc(uid: string) {
+  async function fetchUserDoc(uid: string, email?: string | null) {
     const ref = doc(db, 'users', uid)
     const snap = await getDoc(ref)
     if (snap.exists()) {
@@ -33,6 +33,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setUserDoc(null)
     }
+  }
+
+  // 判斷是否為 Admin Email
+  function checkIsAdmin(email?: string | null): boolean {
+    if (!email) return false
+    const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'admin@example.com,manager@example.com')
+      .split(',')
+      .map(e => e.trim().toLowerCase())
+    return adminEmails.includes(email.toLowerCase())
   }
 
   useEffect(() => {
@@ -48,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(devFallback)
       setUser(firebaseUser)
       if (firebaseUser) {
-        await fetchUserDoc(firebaseUser.uid)
+        await fetchUserDoc(firebaseUser.uid, firebaseUser.email)
       } else {
         setUserDoc(null)
       }
@@ -65,12 +74,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await signInWithPopup(auth, googleProvider)
     const ref = doc(db, 'users', result.user.uid)
     const snap = await getDoc(ref)
+    const isAdmin = checkIsAdmin(result.user.email)
+
     if (snap.exists()) {
-      // 更新最後登入時間
-      await setDoc(ref, { lastLoginAt: serverTimestamp() }, { merge: true })
+      // 更新最後登入時間與權限（若在管理員名單則更新為 admin）
+      const existingData = snap.data() as UserDoc
+      const targetRole = isAdmin ? 'admin' : (existingData.role || 'examinee')
+      await setDoc(ref, { lastLoginAt: serverTimestamp(), role: targetRole }, { merge: true })
     }
-    // 若無 userDoc，middleware 會導向 /setup 設定顯示名稱
-    await fetchUserDoc(result.user.uid)
+    // 若無 userDoc，middleware 會導向 /setup 設定顯示名稱，屆時建檔也會讀取角色
+    await fetchUserDoc(result.user.uid, result.user.email)
   }
 
   async function logout() {
@@ -79,22 +92,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function refreshUserDoc() {
-    if (user) await fetchUserDoc(user.uid)
+    if (user) await fetchUserDoc(user.uid, user.email)
   }
 
-  function devBypassLogin() {
-    // 建立 mock 用戶
+  function devBypassLogin(asRole: UserRole = 'examinee') {
+    // 建立指定角色的 mock 用戶，保留快速測試功能
     const mockUser = {
-      uid: 'dev-mock-uid-001',
-      email: 'dev_hero@example.com',
-      displayName: '客服測試勇者',
+      uid: asRole === 'admin' ? 'dev-admin-uid-001' : 'dev-mock-uid-001',
+      email: asRole === 'admin' ? 'admin_hero@example.com' : 'dev_hero@example.com',
+      displayName: asRole === 'admin' ? '主管測試勇者' : '客服測試勇者',
     } as unknown as User
     
     const mockDoc: UserDoc = {
-      uid: 'dev-mock-uid-001',
-      email: 'dev_hero@example.com',
-      displayName: '客服測試勇者',
-      role: 'examinee',
+      uid: mockUser.uid,
+      email: mockUser.email!,
+      displayName: mockUser.displayName!,
+      role: asRole,
       createdAt: new Date(),
       lastLoginAt: new Date(),
     }

@@ -109,11 +109,6 @@ export default function ResultPage({
                   ? '✅ 已達通過門檻（90 分）'
                   : `❌ 距通過門檻還差 ${90 - score} 分`}
               </p>
-              {IS_DEV && (
-                <p className={styles.devNote}>
-                  ⚠️ DEV：選擇題佔 60 分，問答題佔 40 分（已答即給分）
-                </p>
-              )}
             </div>
           </div>
 
@@ -128,9 +123,9 @@ export default function ResultPage({
             <div className={styles.statItem}>
               <span className={styles.statIcon}>✏️</span>
               <span className={`pixel-title ${styles.statValue} ${styles.colorBlue}`}>
-                {answeredCount - correctCount >= 0 ? answeredCount : answeredCount}
+                {session.answers.filter(a => a.questionDoc?.type === 'qa' && a.isCorrect).length}
               </span>
-              <span className={styles.statLabel}>問答題作答</span>
+              <span className={styles.statLabel}>問答題得分</span>
               <span className={styles.statSub}>/ {totalQa} 題</span>
             </div>
             <div className={styles.statItem}>

@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { MOCK_QUESTIONS } from '@/lib/mockData'
+import { getStoredQuestions } from '@/lib/questionStore'
 import { saveExamSession, ExamSessionAnswer } from '@/lib/examSession'
 import TimerBar from '@/components/TimerBar'
 import ConfirmModal from '@/components/ConfirmModal'
@@ -27,12 +27,13 @@ export default function ExamPage({
   const [timeLeft, setTimeLeft] = useState(IS_DEV ? 30 : TIME_PER_QUESTION)
   const [phase, setPhase] = useState<'exam' | 'saving'>('exam')
   const [expiredSet, setExpiredSet] = useState<Set<string>>(new Set())
+  const [showExitConfirm, setShowExitConfirm] = useState(false)
+  const [questions, setQuestions] = useState<any[]>([])
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const savedRef = useRef(false)
 
   // ── 永遠指向最新 state 的 ref（避免 stale closure）─────────────
-  // 在 render 期間直接賦值是合法且慣用的做法
   const answersRef = useRef(answers)
   const expiredSetRef = useRef(expiredSet)
   const currentIdxRef = useRef(currentIdx)
@@ -40,7 +41,15 @@ export default function ExamPage({
   expiredSetRef.current = expiredSet
   currentIdxRef.current = currentIdx
 
-  const questions = MOCK_QUESTIONS
+  useEffect(() => {
+    const allStored = getStoredQuestions()
+    const validQs = allStored.filter(q => q.enabled && (q.type === 'choice' || q.type === 'qa'))
+    // Fisher-Yates 隨機洗牌
+    const shuffled = [...validQs].sort(() => Math.random() - 0.5)
+    // 限制最多 20 題
+    setQuestions(shuffled.slice(0, 20))
+  }, [])
+
   const currentQ = questions[currentIdx]
   const displayName = userDoc?.displayName ?? (IS_DEV && !loading ? DEV_MOCK_DISPLAY_NAME : '')
 
@@ -52,20 +61,70 @@ export default function ExamPage({
     const finalAnswers = answersRef.current
     const finalExpired = expiredSetRef.current
 
+    const totalQs = questions.length
+    let correctCount = 0
+    let totalScore = 0
+
+    if (totalQs > 0) {
+      const perQuestionScore = 100 / totalQs
+
+      questions.forEach((q) => {
+        const userAns = (finalAnswers[q.id] ?? '').trim()
+
+        if (q.type === 'choice') {
+          if (userAns === q.answer) {
+            correctCount++
+            totalScore += perQuestionScore
+          }
+        } else if (q.type === 'qa') {
+          // 問答題比對邏輯：
+          // 1. 若題目未提供正解參考，有填答即可
+          // 2. 若提供正解，進行去除標點與大小寫比對，包含正解內容或相符即得分
+          const targetAnswer = (q.answer || '').trim()
+          if (!targetAnswer) {
+            if (userAns.length > 0) totalScore += perQuestionScore
+          } else {
+            const cleanUser = userAns.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()（）、「」\s]/g, '')
+            const cleanTarget = targetAnswer.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()（）、「」\s]/g, '')
+
+            if (cleanUser && (cleanUser.includes(cleanTarget) || cleanTarget.includes(cleanUser))) {
+              totalScore += perQuestionScore
+            }
+          }
+        }
+      })
+    }
+
+    const score = Math.round(totalScore)
+
+    const sessionAnswers: ExamSessionAnswer[] = questions.map((q) => {
+      const userAns = (finalAnswers[q.id] ?? '').trim()
+      let isCorrect: boolean | undefined = undefined
+
+      if (q.type === 'choice') {
+        isCorrect = userAns === q.answer
+      } else if (q.type === 'qa') {
+        const targetAnswer = (q.answer || '').trim()
+        if (!targetAnswer) {
+          isCorrect = userAns.length > 0
+        } else {
+          const cleanUser = userAns.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()（）、「」\s]/g, '')
+          const cleanTarget = targetAnswer.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()（）、「」\s]/g, '')
+          isCorrect = cleanUser.length > 0 && (cleanUser.includes(cleanTarget) || cleanTarget.includes(cleanUser))
+        }
+      }
+
+      return {
+        questionId: q.id,
+        userAnswer: userAns,
+        isCorrect,
+        timeExpired: finalExpired.has(q.id),
+        questionDoc: q,
+      }
+    })
+
     const choiceQs = questions.filter((q) => q.type === 'choice')
     const qaQs = questions.filter((q) => q.type === 'qa')
-    const correctCount = choiceQs.filter((q) => finalAnswers[q.id] === q.answer).length
-    const choiceScore = Math.round((correctCount / choiceQs.length) * 60)
-    const answeredQa = qaQs.filter((q) => (finalAnswers[q.id] ?? '').trim().length > 0).length
-    const qaScore = Math.round((answeredQa / qaQs.length) * 40)
-    const score = choiceScore + qaScore
-
-    const sessionAnswers: ExamSessionAnswer[] = questions.map((q) => ({
-      questionId: q.id,
-      userAnswer: finalAnswers[q.id] ?? '',
-      isCorrect: q.type === 'choice' ? finalAnswers[q.id] === q.answer : undefined,
-      timeExpired: finalExpired.has(q.id),
-    }))
 
     saveExamSession({
       examId,
@@ -144,8 +203,20 @@ export default function ExamPage({
     setAnswers((prev) => ({ ...prev, [currentQ.id]: value }))
   }
 
-  // ── Loading / Saving 畫面 ────────────────────────────────────────
-  if (loading && !IS_DEV) {
+  // ── Loading / Saving / 無題目 畫面 ──────────────────────────────
+  if ((loading && !IS_DEV) || questions.length === 0) {
+    if (questions.length === 0) {
+      return (
+        <div className={styles.loading} style={{ flexDirection: 'column', gap: 16 }}>
+          <p className="pixel-title">⚠️ 目前題庫中尚無可用的選擇/問答題</p>
+          <p style={{ color: '#ccc', fontSize: '0.9rem' }}>請請主管至後台（/admin/questions）匯入或啟用題目後再進行考試。</p>
+          <button className="btn-pixel btn-primary" onClick={() => router.push('/exam/quiz/lobby')}>
+            ← 返回考試大廳
+          </button>
+        </div>
+      )
+    }
+
     return (
       <div className={styles.loading}>
         <p className="pixel-title">載入考試中...</p>
@@ -165,8 +236,6 @@ export default function ExamPage({
   const currentAnswer = answers[currentQ.id] ?? ''
   const hasAnswer = currentAnswer.trim().length > 0
   const isLastQuestion = currentIdx === questions.length - 1
-
-  const [showExitConfirm, setShowExitConfirm] = useState(false)
 
   return (
     <main className={`pixel-bg ${styles.main}`}>

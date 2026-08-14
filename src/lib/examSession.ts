@@ -6,6 +6,7 @@ export interface ExamSessionAnswer {
   userAnswer: string   // 選擇題: 'A'/'B'/'C'/'D'；問答題: 文字內容
   isCorrect?: boolean  // 選擇題自動判定；問答題 undefined（待主管批改）
   timeExpired: boolean
+  questionDoc?: any    // 儲存當時作答的完整題目資訊
 }
 
 export interface ExamSession {

@@ -10,10 +10,10 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：🚧 成績自動寫入 / 匯出至 Google Sheets 已完成，準備串接 Firebase 真實資料
+**專案階段**：🚧 假考題清空、隨機抽題（綜合20題/申論10題）與問答比對計分優化完成，準備開發獨立 `/admin/settings` 系統權限後台與進行登入權限串接
 **分支**：`feat/phase1-auth`
 **PRD 版本**：v1.1
-**最後更新**：2026-08-10
+**最後更新**：2026-08-14
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.1）
@@ -22,20 +22,20 @@
 - [x] Next.js 16 + TypeScript 專案初始化
 - [x] Firebase Client / Admin SDK 設定
 - [x] TypeScript 型別定義（所有 Firestore collection）
-- [x] AuthContext（Google 登入、userDoc 同步、角色）
+- [x] AuthContext（Google 登入、userDoc 同步、角色、Admin 清單自動比對、保留 DEV 雙角色快速免登入）
 - [x] 路由守衛 proxy.ts（Next.js 16 規範）
 - [x] globals.css 像素風格 Design Token 系統
-- [x] 登入頁面（`/login`）
+- [x] 登入頁面（`/login`，含 DEV 免登入考生/主管快捷鍵）
 - [x] 首次設定顯示名稱頁面（`/setup`）
 - [x] 首頁大廳（`/`，含綜合/申論模式卡片與主管批改快捷按鈕）
 - [x] Dev 環境 auth bypass（proxy.ts + AuthContext timeout + mock user）
-- [x] 共用假題庫 `src/lib/mockData.ts` + SessionStorage 工具 `src/lib/examSession.ts`
+- [x] 共用題庫 `src/lib/mockData.ts` 假資料清空 + SessionStorage 工具 `src/lib/examSession.ts`
 - [x] `TimerBar` 共用元件（`src/components/TimerBar/`）
 - [x] 綜合模式考試大廳（`/exam/quiz/lobby`）
 - [x] 綜合模式作答頁（`/exam/quiz/[examId]`，含計時、選擇題/問答題）
 - [x] 成績結果頁（`/exam/quiz/[examId]/result`）
 - [x] 錯題回顧頁（`/exam/quiz/[examId]/review`）
-- [x] React state-in-render bug 修復（setter callback 不含 side effect）
+- [x] React state-in-render bug 與 Hydration mismatch / Hooks 順序修復
 - [x] Phase 2：申論模式大廳（`/exam/essay/lobby`）
 - [x] Phase 2：申論模式作答頁（`/exam/essay/[examId]`，每題 10 分鐘，含 Lock 機制）
 - [x] Phase 2：申論模式結果頁（`/exam/essay/[examId]/result`，等待批改狀態與作答預覽）
@@ -47,16 +47,53 @@
 - [x] Phase 3：主管專屬團隊考核進度與狀況總覽（`/admin/users`）
 - [x] 客製化像素風格二次確認彈窗（`ConfirmModal`，應用於離開考試防誤觸）
 - [x] Phase 1：成績自動寫入 / 匯出至 Google Sheets（`src/lib/googleSheets.ts` 與 `/api/export-score`）
+- [x] 考題假資料清空（`MOCK_QUESTIONS` / `MOCK_ESSAY_QUESTIONS` 設為空陣列，準備匯入真實題庫）
+- [x] 隨機抽題機制（綜合模式隨機抽取上限 20 題，申論模式隨機抽取上限 10 題）
+- [x] 綜合模式計分與問答題答案自動比對（去除標點符號與大小寫模糊吻合/包含比對，同等題目權重配分）
+- [x] 錯題回顧頁面連動（支援讀取 Session 保存的完整動態題目資訊與問答題答錯/答對篩選）
 
 ### 下次待辦
+- [ ] 開發獨立的「`/admin/settings` 系統權限與 Admin 名單後台」
+- [ ] 處理登入權限與真實帳號測試（Firestore `users` 集合同步與權限控管）
 - [ ] 串接 Firebase 真實資料（替換 mockData + examSession + questionStore + historyStore → Firestore）
-
-### 尚未開始
-- [ ] Phase 3：像素風格精緻化與動效強化
 
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-08-14 | 考題清空、隨機抽題上限、問答比對計分、錯題優化與權限後台規劃
+
+**負責人**：AI  
+**開發時長**：約 2.0 小時
+
+#### ✅ 今日完成
+1. **假題庫清空**：
+   - 清空 [`src/lib/mockData.ts`](file:///C:/Users/iexs1/OneDrive/%E6%96%87%E4%BB%B6/Program/cs_game/src/lib/mockData.ts) 中的預設測試題庫，保持潔淨狀態供真實題庫匯入。
+2. **管理員權限自動判定與 DEV 快速測試保留**：
+   - [`src/contexts/AuthContext.tsx`](file:///C:/Users/iexs1/OneDrive/%E6%96%87%E4%BB%B6/Program/cs_game/src/contexts/AuthContext.tsx) 加入 `checkIsAdmin` 邏輯，可比對 `NEXT_PUBLIC_ADMIN_EMAILS` 給予 `admin` 角色。
+   - [`/login`](file:///C:/Users/iexs1/OneDrive/%E6%96%87%E4%BB%B6/Program/cs_game/src/app/login/page.tsx) 頁面升級 DEV 快速模擬按鈕（可選擇 **🚀 免登入 考生** 或 **👑 免登入 主管**）。
+3. **隨機抽題與題數限制**：
+   - 綜合模式考試隨機洗牌抽題，限制最多 20 題；申論模式隨機洗牌抽題，限制最多 10 題。
+4. **問答題與正解比對與同權重計分**：
+   - 取消舊版固定 60/40 配分，改為每題等權重配分 `100 / 總題數`。
+   - 問答題新增答案自動比對邏輯（清除標點符號與大小寫後進行包含/吻合檢查）。
+5. **錯題回顧與結果統計修正**：
+   - 在 Session 答案中附帶當次作答的完整題目資訊 `questionDoc`，解決匯入題庫在錯題頁找不到問題的狀況。
+   - 更新錯題頁「答錯」篩選，使其包含答錯的選擇題與未通過比對的問答題。
+   - 結果頁精準顯示「問答題得分數 / 問答題總數」。
+6. **獨立權限管理後台定案**：
+   - 與使用者確認選擇 **方案 B**，將建立獨立的 `/admin/settings` 頁面管理系統權限與 Admin Email 名單。
+
+#### ⚠️ 遭遇問題
+- **React Hydration Error**：擴充套件（如沉浸式翻譯）注入 `data-immersive-translate-page-theme` 觸發 Hydration mismatch，已在 [`layout.tsx`](file:///C:/Users/iexs1/OneDrive/%E6%96%87%E4%BB%B6/Program/cs_game/src/app/layout.tsx) 加入 `suppressHydrationWarning` 解決。
+- **React Rules of Hooks**：條件式 return 下方呼叫 `useState` 觸發鉤子順序錯誤，已將所有 Hooks 提升至組件頂層。
+
+#### ⏭️ 下次開始
+1. 開發獨立的「`/admin/settings` 系統權限與 Admin 名單後台」
+2. 處理登入權限與真實帳號測試（Firestore `users` 集合同步與權限控管）
+3. 串接 Firebase Firestore 真實讀寫
 
 ---
 

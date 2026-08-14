@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { MOCK_ESSAY_QUESTIONS } from '@/lib/mockData'
+import { getStoredQuestions } from '@/lib/questionStore'
 import {
   saveEssaySession,
   setEssayLock,
@@ -33,6 +33,8 @@ export default function EssayExamPage({
   const [timeLeft, setTimeLeft] = useState(IS_DEV ? DEV_TIME : TIME_PER_QUESTION)
   const [phase, setPhase] = useState<'exam' | 'saving'>('exam')
   const [expiredSet, setExpiredSet] = useState<Set<string>>(new Set())
+  const [showExitConfirm, setShowExitConfirm] = useState(false)
+  const [questions, setQuestions] = useState<any[]>([])
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const savedRef = useRef(false)
@@ -45,7 +47,15 @@ export default function EssayExamPage({
   expiredSetRef.current = expiredSet
   currentIdxRef.current = currentIdx
 
-  const questions = MOCK_ESSAY_QUESTIONS
+  useEffect(() => {
+    const allStored = getStoredQuestions()
+    const validQs = allStored.filter(q => q.enabled && q.type === 'essay')
+    // Fisher-Yates 隨機洗牌
+    const shuffled = [...validQs].sort(() => Math.random() - 0.5)
+    // 限制最多 10 題
+    setQuestions(shuffled.slice(0, 10))
+  }, [])
+
   const currentQ = questions[currentIdx]
   const displayName = userDoc?.displayName ?? (IS_DEV && !loading ? DEV_MOCK_DISPLAY_NAME : '')
 
@@ -138,8 +148,20 @@ export default function EssayExamPage({
     setAnswers((prev) => ({ ...prev, [currentQ.id]: value }))
   }
 
-  // ── Loading / Saving 畫面 ─────────────────────────────────────
-  if (loading && !IS_DEV) {
+  // ── Loading / Saving / 無題目 畫面 ─────────────────────────────
+  if ((loading && !IS_DEV) || questions.length === 0) {
+    if (questions.length === 0) {
+      return (
+        <div className={styles.loading} style={{ flexDirection: 'column', gap: 16 }}>
+          <p className="pixel-title">⚠️ 目前題庫中尚無可用的申論題</p>
+          <p style={{ color: '#ccc', fontSize: '0.9rem' }}>請主管至後台（/admin/questions）匯入或啟用申論題後再進行考試。</p>
+          <button className="btn-pixel btn-primary" onClick={() => router.push('/exam/essay/lobby')}>
+            ← 返回申論大廳
+          </button>
+        </div>
+      )
+    }
+
     return (
       <div className={styles.loading}>
         <p className="pixel-title">載入考試中...</p>
@@ -161,8 +183,6 @@ export default function EssayExamPage({
   const isLastQuestion = currentIdx === questions.length - 1
   const wordCount = currentAnswer.length
   const timeTotal = IS_DEV ? DEV_TIME : TIME_PER_QUESTION
-
-  const [showExitConfirm, setShowExitConfirm] = useState(false)
 
   return (
     <main className={`pixel-bg ${styles.main}`}>

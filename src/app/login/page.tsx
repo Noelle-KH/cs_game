@@ -74,13 +74,24 @@ export default function LoginPage() {
         </button>
 
         {/* 快速模擬登入按鈕（開發測試免登入） */}
-        <button
-          id="btn-dev-bypass"
-          className={`btn-pixel btn-secondary ${styles.devBypassBtn}`}
-          onClick={devBypassLogin}
-        >
-          🚀 [DEV] 模擬免登入進大廳
-        </button>
+        <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
+          <button
+            id="btn-dev-bypass-examinee"
+            className={`btn-pixel btn-secondary ${styles.devBypassBtn}`}
+            style={{ flex: 1, fontSize: '0.8rem' }}
+            onClick={() => devBypassLogin('examinee')}
+          >
+            🚀 [DEV] 免登入 (考生)
+          </button>
+          <button
+            id="btn-dev-bypass-admin"
+            className={`btn-pixel btn-secondary ${styles.devBypassBtn}`}
+            style={{ flex: 1, fontSize: '0.8rem', borderColor: '#f39c12', color: '#f39c12' }}
+            onClick={() => devBypassLogin('admin')}
+          >
+            👑 [DEV] 免登入 (主管)
+          </button>
+        </div>
 
         {/* 版本標記 */}
         <p className={styles.version}>v1.0 · Phase 1</p>
