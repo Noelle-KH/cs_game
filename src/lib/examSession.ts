@@ -5,6 +5,8 @@ export interface ExamSessionAnswer {
   questionId: string
   userAnswer: string   // 選擇題: 'A'/'B'/'C'/'D'；問答題: 文字內容
   isCorrect?: boolean  // 選擇題自動判定；問答題 undefined（待主管批改）
+  score?: number       // 主管針對問答題評分 (0-100/總題數)
+  comment?: string     // 主管對問答題評語
   timeExpired: boolean
   questionDoc?: any    // 儲存當時作答的完整題目資訊
 }
@@ -13,9 +15,12 @@ export interface ExamSession {
   examId: string
   mode: 'quiz' | 'essay'
   displayName: string
-  score: number         // 自動計算分數（問答題按比例估算）
+  status: 'submitted' | 'graded' // 綜合模式含問答題時為 submitted（待批改），批改完為 graded
+  score: number         // 總得分（未批改前為選擇題部分得分）
+  choiceScore: number   // 選擇題得分
+  qaScore?: number      // 問答題得分（主管批改後更新）
   maxScore: number      // 100
-  passed: boolean       // score >= 90
+  passed: boolean       // score >= 90（已批改完成時判定）
   correctCount: number  // 選擇題答對題數
   totalChoice: number   // 選擇題總題數
   totalQa: number       // 問答題總題數
@@ -23,6 +28,7 @@ export interface ExamSession {
   answeredCount: number // 已作答題數
   answers: ExamSessionAnswer[]
   submittedAt: string   // ISO string
+  gradedAt?: string     // ISO string
 }
 
 const SESSION_KEY = 'cs_exam_session'

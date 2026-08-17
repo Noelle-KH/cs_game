@@ -3,8 +3,71 @@ import { MOCK_QUESTIONS, MOCK_ESSAY_QUESTIONS } from '@/lib/mockData'
 
 const QUESTIONS_STORAGE_KEY = 'cs_game_admin_questions'
 
-// 預設題庫
-const DEFAULT_QUESTIONS: QuestionDoc[] = [...MOCK_QUESTIONS, ...MOCK_ESSAY_QUESTIONS]
+// 預設 Demo 題庫（供測試與未上傳 Excel 前備用）
+const DEMO_QUESTIONS: QuestionDoc[] = [
+  {
+    id: 'q-demo-01',
+    type: 'choice',
+    difficulty: 'basic',
+    context: '客戶進線詢問帳號登入問題',
+    content: '當客戶忘記密碼且無法存取註冊 Email 時，標準驗證流程為何？',
+    options: {
+      A: '請客戶提供身分證字號與最後一次消費紀錄',
+      B: '直接協助客戶變更 Email',
+      C: '告知客戶無法處理並掛斷',
+      D: '將密碼發送到任一指定手機號碼',
+    },
+    answer: 'A',
+    explanation: '基於資安規範，需通過第二因子個人資料與交易紀錄雙重核對。',
+    enabled: true,
+    sourceId: 'demo-01',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'q-demo-02',
+    type: 'choice',
+    difficulty: 'medium',
+    context: '線上刷卡失敗情境',
+    content: '客戶反映刷卡失敗顯示錯誤碼 E3001，主要可能原因為何？',
+    options: {
+      A: '伺服器維護中',
+      B: '發卡銀行拒絕交易（額度不足或跨國交易未開通）',
+      C: '網路斷線',
+      D: '系統格式錯誤',
+    },
+    answer: 'B',
+    explanation: 'E3001 為發卡行拒絕交易代碼。',
+    enabled: true,
+    sourceId: 'demo-02',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'q-demo-03',
+    type: 'qa',
+    difficulty: 'medium',
+    context: '退費政策應對情境',
+    content: '請簡述當客戶購買產品超過 7 天鑑賞期，但因特殊理由堅持要求全額退費時的標準處置應對原則。',
+    answer: '先同理客戶心情，說明公司規範政策，並嘗試爭取替代補償方案（如延期或點數回饋）。',
+    explanation: '著重於客戶情緒安撫、條款說明與彈性補償。',
+    enabled: true,
+    sourceId: 'demo-03',
+    syncedAt: new Date(),
+  },
+  {
+    id: 'eq-demo-01',
+    type: 'essay',
+    difficulty: 'advanced',
+    context: '遭遇客訴與重大系統異常通報處理',
+    content: '假設今日平台遭遇重大系統連線中斷，導致大量客戶進線質疑與抱怨。請撰寫一份客服標準應答指南與通報 SOP。',
+    answer: '包含同理心應答、現況告知、工程團隊通報流程與進度關懷追蹤。',
+    explanation: '評估客服綜合同理心、緊急應變與SOP遵循能力。',
+    enabled: true,
+    sourceId: 'demo-eq-01',
+    syncedAt: new Date(),
+  },
+]
+
+const DEFAULT_QUESTIONS: QuestionDoc[] = [...MOCK_QUESTIONS, ...MOCK_ESSAY_QUESTIONS, ...DEMO_QUESTIONS]
 
 /**
  * 取得目前所有的題目列表 (SessionStorage + fallback mock)

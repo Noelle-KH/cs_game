@@ -10,10 +10,10 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：🚧 假考題清空、隨機抽題（綜合20題/申論10題）與問答比對計分優化完成，準備開發獨立 `/admin/settings` 系統權限後台與進行登入權限串接
+**專案階段**：✅ 綜合模式問答題主管批改重構完成，已通過全靜態頁面 build 與型別檢查，準備開發獨立 `/admin/settings` 後台與登入權限串接
 **分支**：`feat/phase1-auth`
 **PRD 版本**：v1.1
-**最後更新**：2026-08-14
+**最後更新**：2026-08-17
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.1）
@@ -44,13 +44,15 @@
 - [x] Phase 2：題庫管理與 Excel 匯入/編輯/軟刪除後台（`/admin/questions`）
 - [x] Phase 3：冒險排行榜頁面（`/leaderboard`，支援綜合最高分榜與申論榮譽榜）
 - [x] Phase 3：個人歷史成績與錯題記錄頁（`/profile/results`，支援統計摘要與申論評語檢視）
-- [x] Phase 3：主管專屬團隊考核進度與狀況總覽（`/admin/users`）
+- [x] Phase 3：主管專屬團隊考核進度與狀況总覽（`/admin/users`）
 - [x] 客製化像素風格二次確認彈窗（`ConfirmModal`，應用於離開考試防誤觸）
 - [x] Phase 1：成績自動寫入 / 匯出至 Google Sheets（`src/lib/googleSheets.ts` 與 `/api/export-score`）
 - [x] 考題假資料清空（`MOCK_QUESTIONS` / `MOCK_ESSAY_QUESTIONS` 設為空陣列，準備匯入真實題庫）
 - [x] 隨機抽題機制（綜合模式隨機抽取上限 20 題，申論模式隨機抽取上限 10 題）
-- [x] 綜合模式計分與問答題答案自動比對（去除標點符號與大小寫模糊吻合/包含比對，同等題目權重配分）
-- [x] 錯題回顧頁面連動（支援讀取 Session 保存的完整動態題目資訊與問答題答錯/答對篩選）
+- [x] 定案綜合模式問答題改採主管人工批改與排行榜採計規範 (DEC-008, 方案 A)
+- [x] 重構綜合模式考試作答與結果頁 (`/exam/quiz/[examId]`)：選擇題即時算分，問答題自動進入 `submitted` 待審核狀態
+- [x] 升級主管批改後台 (`/admin/grade`)：整合「綜合模式 (Quiz)」與「申論模式 (Essay)」跨模式考卷篩選、問答題打分與評語
+- [x] 調整排行榜與個人成績頁 (`/leaderboard` & `/profile/results`)：落實方案 A，待主管批改完成 (`status: 'graded'`) 後才更新排行榜與寫入 Google Sheets
 
 ### 下次待辦
 - [ ] 開發獨立的「`/admin/settings` 系統權限與 Admin 名單後台」
@@ -60,6 +62,39 @@
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-08-17 | 綜合模式問答題改主管人工批改重構、錯題回顧與後台整合
+
+**負責人**：AI  
+**開發時長**：約 2.0 小時
+
+#### ✅ 今日完成
+1. **技術決策寫入 (DEC-008)**：
+   - 決議將綜合模式的問答題由「自動比對」改為「主管人工批改」，並採取 **方案 A（未完成主管批改前暫不寫入排行榜與 Google Sheets）**。
+2. **綜合模式交卷與結果頁重構 (`/exam/quiz/[examId]`)**：
+   - 交卷時即時結算選擇題得分，問答題留待主管審核，考卷標記為 `submitted` 待審核狀態。
+   - 結果頁新增「已交卷，等待主管審核中」藍色提示 Banner 與階段性選擇題得分展示。
+3. **錯題回顧頁面連動 (`/exam/quiz/[examId]/review`)**：
+   - 審核前隱藏參考答案並標記 `⏳ 待主管審核` 標籤；主管完成批改後 (`status: 'graded'`) 解鎖參考答案與顯示得分評語。
+4. **主管批改後台大升級 (`/admin/grade`)**：
+   - 支援「全部 / 綜合模式 (Quiz) / 申論模式 (Essay)」下拉式篩選。
+   - 綜合模式批改卡片預載選擇題已得分數、題目範例 context、關鍵字參考答案與 0~20 分獨立打分評語區塊。
+   - 新增試驗用綜合待批改假資料（皮卡丘、小火龍）。
+5. **排行榜與成績匯出過濾 (`historyStore.ts` & `/api/export-score`)**：
+   - `getQuizLeaderboard()` 嚴格限定僅採計 `status === 'graded'` 之考卷，寫入 Google Sheets 移至主管提交評分時觸發。
+6. **建置與型別驗證**：
+   - 補齊本機測試可用 Demo 題庫（避免無題目導頁失敗），通過 `npx next build` 靜態頁面打包（17 個路由通過）與 `npx tsc --noEmit` 檢查。
+
+#### ⚠️ 遭遇問題
+- **Turbopack Panic Error (500 Error)**：因 OneDrive 背景自動同步機制與 Turbopack 快取發起鎖定衝突，導致開發伺服器 Panic。已清除 `.next` 目錄並確認 Webpack 編譯穩定。
+- **DEV Fallback TypeScript Error**：`MOCK_SESSION` 缺少 `status` 與 `choiceScore` 欄位導致 TS2739 錯誤，已補齊全欄位修復。
+
+#### ⏭️ 下次開始
+1. 開發獨立的「`/admin/settings` 系統權限與 Admin 名單後台」
+2. 處理登入權限與真實帳號測試（Firestore `users` 集合同步與權限控管）
+3. 串接 Firebase Firestore 真實讀寫
 
 ---
 

@@ -64,11 +64,21 @@ export default function ReviewPage({
   const safeIdx = Math.min(selectedIdx, filtered.length - 1)
   const current = filtered[safeIdx]
 
+  const isGraded = session.status === 'graded'
+
   function getStatusLabel(item: { ans: ExamSessionAnswer; q: QuestionDoc }) {
     if (item.ans.timeExpired) return { text: '⏱️ 超時', cls: styles.statusExpired }
+    if (item.q.type === 'qa') {
+      if (!isGraded && item.ans.score === undefined) {
+        return { text: '⏳ 待主管審核', cls: styles.statusQa }
+      }
+      if (item.ans.score !== undefined && item.ans.score > 0) {
+        return { text: '✅ 已評分', cls: styles.statusCorrect }
+      }
+      return { text: '✏️ 問答', cls: styles.statusQa }
+    }
     if (item.ans.isCorrect === true) return { text: '✅ 答對', cls: styles.statusCorrect }
     if (item.ans.isCorrect === false) return { text: '❌ 答錯', cls: styles.statusWrong }
-    if (item.q.type === 'qa') return { text: '✏️ 問答', cls: styles.statusQa }
     return { text: '❌ 答錯', cls: styles.statusWrong }
   }
 
@@ -174,7 +184,7 @@ export default function ReviewPage({
                   </div>
                 )}
 
-                {/* 問答題：我的作答 + 參考答案 */}
+                {/* 問答題：我的作答 + 審核狀態 / 參考答案 & 評分 */}
                 {current.q.type === 'qa' && (
                   <div className={styles.qaSection}>
                     <div className={styles.qaBlock}>
@@ -183,10 +193,35 @@ export default function ReviewPage({
                         {current.ans.userAnswer || (current.ans.timeExpired ? '（超時未作答）' : '（未作答）')}
                       </p>
                     </div>
-                    <div className={`${styles.qaBlock} ${styles.qaRefBlock}`}>
-                      <span className={styles.qaBlockLabel}>📖 參考答案</span>
-                      <p className={styles.qaContent}>{current.q.answer}</p>
-                    </div>
+
+                    {!isGraded && current.ans.score === undefined ? (
+                      <div className={styles.qaBlock} style={{ background: 'rgba(91, 164, 207, 0.08)', borderLeft: '4px solid #4a6fa5' }}>
+                        <span className={styles.qaBlockLabel} style={{ color: '#63b3ed' }}>⏳ 主管審核狀態</span>
+                        <p className={styles.qaContent} style={{ color: '#cbd5e0' }}>
+                          問答題已提交，等待主管於後台審核與提供指導評語中。批改完成前暫不公開參考答案。
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className={`${styles.qaBlock} ${styles.qaRefBlock}`}>
+                          <span className={styles.qaBlockLabel}>📖 參考答案</span>
+                          <p className={styles.qaContent}>{current.q.answer || '（無參考標準答案）'}</p>
+                        </div>
+
+                        {current.ans.score !== undefined && (
+                          <div className={styles.qaBlock} style={{ background: 'rgba(76, 175, 80, 0.08)', borderLeft: '4px solid var(--color-success)' }}>
+                            <span className={styles.qaBlockLabel} style={{ color: 'var(--color-success)' }}>
+                              🎯 主管評分：{current.ans.score} 分
+                            </span>
+                            {current.ans.comment && (
+                              <p className={styles.qaContent} style={{ marginTop: 6, color: '#e2e8f0' }}>
+                                💬 指導評語：{current.ans.comment}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -235,7 +270,9 @@ function MOCK_REVIEW_SESSION(examId: string): ExamSession {
     examId,
     mode: 'quiz',
     displayName: '開發測試員',
+    status: 'submitted',
     score: 72,
+    choiceScore: 60,
     maxScore: 100,
     passed: false,
     correctCount: 4,

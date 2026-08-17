@@ -101,10 +101,11 @@ export function addHistoryRecord(item: ExamHistoryItem): ExamHistoryItem[] {
 
 /**
  * 取得排行榜（綜合模式最高分 Top 10）
+ * 方案 A：僅採計已完成主管批改 (status === 'graded') 的考卷
  */
 export function getQuizLeaderboard(): ExamHistoryItem[] {
   const history = getStoredHistory()
-  const quizItems = history.filter(h => h.mode === 'quiz')
+  const quizItems = history.filter(h => h.mode === 'quiz' && h.status === 'graded')
   return quizItems.sort((a, b) => b.score - a.score).slice(0, 10)
 }
 

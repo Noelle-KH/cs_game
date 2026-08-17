@@ -76,26 +76,18 @@ export default function ExamPage({
             correctCount++
             totalScore += perQuestionScore
           }
-        } else if (q.type === 'qa') {
-          // 問答題比對邏輯：
-          // 1. 若題目未提供正解參考，有填答即可
-          // 2. 若提供正解，進行去除標點與大小寫比對，包含正解內容或相符即得分
-          const targetAnswer = (q.answer || '').trim()
-          if (!targetAnswer) {
-            if (userAns.length > 0) totalScore += perQuestionScore
-          } else {
-            const cleanUser = userAns.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()（）、「」\s]/g, '')
-            const cleanTarget = targetAnswer.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()（）、「」\s]/g, '')
-
-            if (cleanUser && (cleanUser.includes(cleanTarget) || cleanTarget.includes(cleanUser))) {
-              totalScore += perQuestionScore
-            }
-          }
         }
       })
     }
 
-    const score = Math.round(totalScore)
+    const choiceScore = Math.round(totalScore)
+    const choiceQs = questions.filter((q) => q.type === 'choice')
+    const qaQs = questions.filter((q) => q.type === 'qa')
+
+    // 若有問答題，狀態為 submitted（待主管審核）；若全為選擇題，狀態為 graded
+    const status = qaQs.length > 0 ? 'submitted' : 'graded'
+    const finalScore = status === 'graded' ? choiceScore : choiceScore
+    const passed = status === 'graded' ? finalScore >= 90 : false
 
     const sessionAnswers: ExamSessionAnswer[] = questions.map((q) => {
       const userAns = (finalAnswers[q.id] ?? '').trim()
@@ -103,16 +95,8 @@ export default function ExamPage({
 
       if (q.type === 'choice') {
         isCorrect = userAns === q.answer
-      } else if (q.type === 'qa') {
-        const targetAnswer = (q.answer || '').trim()
-        if (!targetAnswer) {
-          isCorrect = userAns.length > 0
-        } else {
-          const cleanUser = userAns.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()（）、「」\s]/g, '')
-          const cleanTarget = targetAnswer.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()（）、「」\s]/g, '')
-          isCorrect = cleanUser.length > 0 && (cleanUser.includes(cleanTarget) || cleanTarget.includes(cleanUser))
-        }
       }
+      // 問答題 isCorrect 保持 undefined，待主管批改
 
       return {
         questionId: q.id,
@@ -123,16 +107,15 @@ export default function ExamPage({
       }
     })
 
-    const choiceQs = questions.filter((q) => q.type === 'choice')
-    const qaQs = questions.filter((q) => q.type === 'qa')
-
     saveExamSession({
       examId,
       mode: 'quiz',
       displayName: displayName || DEV_MOCK_DISPLAY_NAME,
-      score,
+      status,
+      score: finalScore,
+      choiceScore,
       maxScore: 100,
-      passed: score >= 90,
+      passed,
       correctCount,
       totalChoice: choiceQs.length,
       totalQa: qaQs.length,
