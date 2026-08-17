@@ -26,22 +26,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   async function fetchUserDoc(uid: string, email?: string | null) {
-    const ref = doc(db, 'users', uid)
-    const snap = await getDoc(ref)
-    if (snap.exists()) {
-      setUserDoc(snap.data() as UserDoc)
-    } else {
-      setUserDoc(null)
+    try {
+      const ref = doc(db, 'users', uid)
+      const snap = await getDoc(ref)
+      if (snap.exists()) {
+        const data = snap.data()
+        setUserDoc({
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          lastLoginAt: data.lastLoginAt?.toDate ? data.lastLoginAt.toDate() : new Date(),
+        } as UserDoc)
+      } else {
+        setUserDoc(null)
+      }
+    } catch (e) {
+      console.error('Failed to fetch userDoc from Firestore:', e)
     }
   }
 
-  // 判斷是否為 Admin Email
+  // 判斷是否為 Admin Email (支援比對環境變數與 Settings 後台設定)
   function checkIsAdmin(email?: string | null): boolean {
     if (!email) return false
-    const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'admin@example.com,manager@example.com')
+    const envEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'admin@example.com,manager@example.com')
       .split(',')
       .map(e => e.trim().toLowerCase())
-    return adminEmails.includes(email.toLowerCase())
+    
+    let localEmails: string[] = []
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('cs_admin_emails')
+      if (stored) {
+        try { localEmails = (JSON.parse(stored) as string[]).map(e => e.toLowerCase()) } catch {}
+      }
+    }
+
+    const allAdminEmails = Array.from(new Set([...envEmails, ...localEmails]))
+    return allAdminEmails.includes(email.toLowerCase())
   }
 
   useEffect(() => {
@@ -71,19 +90,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function signInWithGoogle() {
-    const result = await signInWithPopup(auth, googleProvider)
-    const ref = doc(db, 'users', result.user.uid)
-    const snap = await getDoc(ref)
-    const isAdmin = checkIsAdmin(result.user.email)
+    try {
+      const result = await signInWithPopup(auth, googleProvider)
+      const firebaseUser = result.user
+      const ref = doc(db, 'users', firebaseUser.uid)
+      const snap = await getDoc(ref)
+      const isAdmin = checkIsAdmin(firebaseUser.email)
 
-    if (snap.exists()) {
-      // 更新最後登入時間與權限（若在管理員名單則更新為 admin）
-      const existingData = snap.data() as UserDoc
-      const targetRole = isAdmin ? 'admin' : (existingData.role || 'examinee')
-      await setDoc(ref, { lastLoginAt: serverTimestamp(), role: targetRole }, { merge: true })
+      const defaultDisplayName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '客服勇者'
+      const targetRole: UserRole = isAdmin ? 'admin' : 'examinee'
+
+      if (snap.exists()) {
+        const existingData = snap.data() as UserDoc
+        const updatedRole = isAdmin ? 'admin' : (existingData.role || 'examinee')
+        await setDoc(ref, {
+          lastLoginAt: serverTimestamp(),
+          role: updatedRole,
+          email: firebaseUser.email || existingData.email,
+        }, { merge: true })
+      } else {
+        // 首次 Google 登入：自動建立雲端 users 數據
+        const newUserDoc: Omit<UserDoc, 'createdAt' | 'lastLoginAt'> & { createdAt: any; lastLoginAt: any } = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          displayName: defaultDisplayName,
+          role: targetRole,
+          createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+        }
+        await setDoc(ref, newUserDoc)
+      }
+
+      await fetchUserDoc(firebaseUser.uid, firebaseUser.email)
+    } catch (e: any) {
+      console.error('Google Sign-in Error:', e)
+      alert(`⚠️ 登入失敗：${e?.message || '請確認網路或 Google 登入設定'}`)
     }
-    // 若無 userDoc，middleware 會導向 /setup 設定顯示名稱，屆時建檔也會讀取角色
-    await fetchUserDoc(result.user.uid, result.user.email)
   }
 
   async function logout() {

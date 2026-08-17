@@ -16,14 +16,9 @@ const DEV_MOCK_USERDO: UserDoc = {
   lastLoginAt: new Date(),
 }
 
-// ── 假資料（待接 Firestore 後替換） ─────────────────────────────
-const MOCK_HISTORY = [
-  { id: 'exam-001', date: '2026-07-25', score: 85, passed: false, totalQ: 20, correctQ: 17 },
-  { id: 'exam-002', date: '2026-07-22', score: 70, passed: false, totalQ: 20, correctQ: 14 },
-  { id: 'exam-003', date: '2026-07-18', score: 95, passed: true,  totalQ: 20, correctQ: 19 },
-]
-
-const MOCK_BEST_SCORE = 95
+// 歷史與分數統計（潔淨狀態）
+const MOCK_HISTORY: any[] = []
+const MOCK_BEST_SCORE = 0
 
 const QUIZ_RULES = [
   { icon: '📋', label: '題型', value: '選擇題 + 問答題混合，共 20 題' },

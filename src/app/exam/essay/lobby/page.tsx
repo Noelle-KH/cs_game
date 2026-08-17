@@ -21,25 +21,8 @@ const DEV_MOCK_USERDOC: UserDoc = {
   lastLoginAt: new Date(),
 }
 
-// ── 假資料（待接 Firestore 後替換） ──────────────────────────────
-const MOCK_ESSAY_HISTORY = [
-  {
-    id: 'essay-001',
-    date: '2026-07-20',
-    status: 'graded' as const,
-    totalScore: 82,
-    passed: false,
-    questionCount: 10,
-  },
-  {
-    id: 'essay-002',
-    date: '2026-06-15',
-    status: 'graded' as const,
-    totalScore: 91,
-    passed: true,
-    questionCount: 10,
-  },
-]
+// 歷史與分數統計（潔淨狀態）
+const MOCK_ESSAY_HISTORY: any[] = []
 
 const THIS_MONTH = '2026-08' // 模擬當月（待換為真實邏輯）
 const HAS_SUBMITTED_THIS_MONTH = false // 模擬本月是否已提交（待換為真實邏輯）

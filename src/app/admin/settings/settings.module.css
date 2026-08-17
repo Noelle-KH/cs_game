@@ -1,0 +1,199 @@
+.container {
+  min-height: 100vh;
+  background-color: var(--color-space-dark);
+  color: var(--color-parchment);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: var(--space-4);
+  border-bottom: 2px dashed var(--color-gray-4);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.backBtn {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  color: var(--color-sky-blue);
+  text-decoration: none;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-sky-blue);
+  transition: all var(--transition-fast);
+}
+
+.backBtn:hover {
+  background: rgba(91, 164, 207, 0.15);
+}
+
+.title {
+  font-size: var(--text-lg);
+  color: var(--color-parchment);
+  margin: 0;
+}
+
+.roleBadge {
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  background: rgba(255, 152, 0, 0.15);
+  color: var(--color-warm-orange);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-warm-orange);
+}
+
+.toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  background-color: var(--color-card-bg);
+  border: 2px solid var(--color-warm-orange);
+  color: var(--color-parchment);
+  padding: var(--space-4) var(--space-6);
+  font-family: var(--font-pixel);
+  font-size: var(--text-sm);
+  z-index: 1000;
+  box-shadow: var(--shadow-pixel);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.mainLayout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.panel {
+  padding: var(--space-6);
+  background: var(--color-card-bg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.panelTitle {
+  font-family: var(--font-pixel);
+  font-size: var(--text-md);
+  color: var(--color-warm-orange);
+  margin: 0;
+}
+
+.panelSub {
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+  margin: 0;
+}
+
+.addInputGroup {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.emailInput {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--color-gray-4);
+  color: var(--color-parchment);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.emailInput:focus {
+  border-color: var(--color-warm-orange);
+}
+
+.emailList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.emailItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-gray-4);
+}
+
+.emailText {
+  font-size: var(--text-sm);
+  color: var(--color-parchment);
+}
+
+.removeBtn {
+  background: transparent;
+  border: 1px solid var(--color-maple-red);
+  color: var(--color-maple-red);
+  font-family: var(--font-pixel);
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.removeBtn:hover {
+  background: rgba(204, 61, 61, 0.2);
+}
+
+.emptyText {
+  font-size: var(--text-xs);
+  color: var(--color-gray-3);
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.formItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--text-xs);
+  color: var(--color-parchment-dark);
+}
+
+.numInput {
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--color-gray-4);
+  color: var(--color-warm-orange);
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-pixel);
+  font-size: var(--text-md);
+  outline: none;
+}
+
+.numInput:focus {
+  border-color: var(--color-warm-orange);
+}

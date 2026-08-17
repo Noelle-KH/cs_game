@@ -6,16 +6,16 @@ import * as ExcelJS from 'exceljs'
 import styles from './questions.module.css'
 import { QuestionDoc, QuestionType, Difficulty } from '@/types'
 import {
-  getStoredQuestions,
-  toggleQuestionEnabled,
-  saveSingleQuestion,
-  deleteQuestionSoft,
-  importQuestionsFromExcel,
-  resetQuestionsToDefault,
+  getFirestoreQuestions,
+  toggleQuestionEnabledFirestore,
+  saveSingleQuestionFirestore,
+  deleteQuestionSoftFirestore,
+  importQuestionsToFirestore,
 } from '@/lib/questionStore'
 
 export default function AdminQuestionsPage() {
   const [questions, setQuestions] = useState<QuestionDoc[]>([])
+  const [loadingQuestions, setLoadingQuestions] = useState<boolean>(true)
   const [filterType, setFilterType] = useState<string>('all')
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all')
   const [searchKeyword, setSearchKeyword] = useState<string>('')
@@ -29,11 +29,19 @@ export default function AdminQuestionsPage() {
   const [importMode, setImportMode] = useState<'append' | 'upsert'>('append')
   const [parsedRows, setParsedRows] = useState<any[]>([])
   const [importSummary, setImportSummary] = useState<string | null>(null)
+  const [isSubmittingImport, setIsSubmittingImport] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 載入資料
+  // 載入 Firestore 雲端資料
+  const fetchCloudQuestions = async () => {
+    setLoadingQuestions(true)
+    const data = await getFirestoreQuestions()
+    setQuestions(data)
+    setLoadingQuestions(false)
+  }
+
   useEffect(() => {
-    setQuestions(getStoredQuestions())
+    fetchCloudQuestions()
   }, [])
 
   // 篩選題目
@@ -51,16 +59,20 @@ export default function AdminQuestionsPage() {
   })
 
   // 開關啟用/停用
-  const handleToggleEnabled = (id: string) => {
-    const updated = toggleQuestionEnabled(id)
+  const handleToggleEnabled = async (id: string, currentEnabled: boolean) => {
+    setLoadingQuestions(true)
+    const updated = await toggleQuestionEnabledFirestore(id, currentEnabled)
     setQuestions(updated)
+    setLoadingQuestions(false)
   }
 
   // 軟刪除題目
-  const handleDelete = (id: string) => {
-    if (confirm('確定要停用/軟刪除此題目嗎？（該題目將不參與隨機抽考）')) {
-      const updated = deleteQuestionSoft(id)
+  const handleDelete = async (id: string) => {
+    if (confirm('確定要停用/軟刪除此題目嗎？（該題目將不發送至測驗考場）')) {
+      setLoadingQuestions(true)
+      const updated = await deleteQuestionSoftFirestore(id)
       setQuestions(updated)
+      setLoadingQuestions(false)
     }
   }
 
@@ -70,7 +82,7 @@ export default function AdminQuestionsPage() {
       setCurrentEdit({ ...q })
     } else {
       setCurrentEdit({
-        id: `q-custom-${Date.now()}`,
+        id: `q-cloud-${Date.now()}`,
         type: 'choice',
         difficulty: 'medium',
         context: '',
@@ -85,8 +97,8 @@ export default function AdminQuestionsPage() {
     setEditModalOpen(true)
   }
 
-  // 儲存編輯內容
-  const handleSaveEdit = (e: React.FormEvent) => {
+  // 儲存編輯內容至 Firestore
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!currentEdit.content || !currentEdit.type || !currentEdit.difficulty) {
       alert('請填寫題目主文、題型與難易度！')
@@ -94,7 +106,7 @@ export default function AdminQuestionsPage() {
     }
 
     const docToSave: QuestionDoc = {
-      id: currentEdit.id || `q-custom-${Date.now()}`,
+      id: currentEdit.id || `q-cloud-${Date.now()}`,
       type: currentEdit.type as QuestionType,
       difficulty: currentEdit.difficulty as Difficulty,
       context: currentEdit.context || '',
@@ -107,8 +119,10 @@ export default function AdminQuestionsPage() {
       syncedAt: new Date(),
     }
 
-    const updated = saveSingleQuestion(docToSave)
+    setLoadingQuestions(true)
+    const updated = await saveSingleQuestionFirestore(docToSave)
     setQuestions(updated)
+    setLoadingQuestions(false)
     setEditModalOpen(false)
   }
 
@@ -151,24 +165,45 @@ export default function AdminQuestionsPage() {
       })
 
       setParsedRows(rows)
-      setImportSummary(`成功讀取 ${rows.length} 筆資料，請確認後執行匯入。`)
+      setImportSummary(`成功讀取 ${rows.length} 筆資料，點擊下方「確定匯入」寫入 Firestore 雲端題庫。`)
     } catch (err) {
       console.error('Excel Parsing Error:', err)
       alert('解析 Excel 檔案失敗，請確保檔案格式正確！')
     }
   }
 
-  // 執行匯入
-  const handleConfirmImport = () => {
-    if (parsedRows.length === 0) return
-    const result = importQuestionsFromExcel(parsedRows, importMode)
-    setQuestions(result.updatedList)
-    alert(
-      `匯入完成！\n新增：${result.addedCount} 筆\n更新：${result.updatedCount} 筆\n忽略/格式錯誤：${result.errorCount} 筆`
-    )
-    setImportModalOpen(false)
-    setParsedRows([])
-    setImportSummary(null)
+  const [importProgressMsg, setImportProgressMsg] = useState<string | null>(null)
+
+  // 執行匯入 Firestore 雲端
+  const handleConfirmImport = async () => {
+    if (parsedRows.length === 0) {
+      alert('⚠️ 請先選取並解析 Excel 檔案！')
+      return
+    }
+    setIsSubmittingImport(true)
+    setImportProgressMsg('準備開始分批寫入 Firestore 雲端...')
+    try {
+      const result = await importQuestionsToFirestore(
+        parsedRows,
+        importMode,
+        (current, total) => {
+          setImportProgressMsg(`🚀 正在寫入雲端 Firestore (${current} / ${total} 筆)...`)
+        }
+      )
+      setQuestions(result.updatedList)
+      alert(
+        `🎉 雲端題庫匯入完成！\n新增：${result.addedCount} 筆\n更新：${result.updatedCount} 筆\n格式錯誤/忽略：${result.errorCount} 筆`
+      )
+      setImportModalOpen(false)
+      setParsedRows([])
+      setImportSummary(null)
+    } catch (e: any) {
+      console.error('Import failed:', e)
+      alert(`⚠️ 匯入過程發生錯誤：${e?.message || '請確認網路或 Firebase 權限'}`)
+    } finally {
+      setIsSubmittingImport(false)
+      setImportProgressMsg(null)
+    }
   }
 
   // 匯出現有題庫 Excel
@@ -220,12 +255,12 @@ export default function AdminQuestionsPage() {
     window.URL.revokeObjectURL(url)
   }
 
-  // 重置回預設
-  const handleResetDefault = () => {
-    if (confirm('確定要還原成預設題庫嗎？手動新增/匯入的題目將被覆蓋！')) {
-      const defaultList = resetQuestionsToDefault()
-      setQuestions(defaultList)
-    }
+  // 重新從 Firestore 刷新雲端題庫
+  const handleResetDefault = async () => {
+    setLoadingQuestions(true)
+    const cloudList = await getFirestoreQuestions()
+    setQuestions(cloudList)
+    setLoadingQuestions(false)
   }
 
   return (
@@ -353,7 +388,7 @@ export default function AdminQuestionsPage() {
                         q.enabled ? styles.btnSuccess : styles.btnDanger
                       }`}
                       style={{ padding: '2px 8px', fontSize: '0.75rem' }}
-                      onClick={() => handleToggleEnabled(q.id)}
+                      onClick={() => handleToggleEnabled(q.id, q.enabled)}
                     >
                       {q.enabled ? '啟用中' : '已停用'}
                     </button>
@@ -697,11 +732,15 @@ export default function AdminQuestionsPage() {
               />
             </div>
 
-            {importSummary && (
+            {importProgressMsg ? (
+              <div style={{ padding: 12, background: '#fef3c7', color: '#92400e', borderRadius: 4, marginBottom: 12, fontWeight: 'bold' }}>
+                {importProgressMsg}
+              </div>
+            ) : importSummary ? (
               <div style={{ padding: 10, background: '#e0f2fe', color: '#0369a1', borderRadius: 4, marginBottom: 12 }}>
                 {importSummary}
               </div>
-            )}
+            ) : null}
 
             {parsedRows.length > 0 && (
               <div>
@@ -742,10 +781,10 @@ export default function AdminQuestionsPage() {
               </button>
               <button
                 className={`${styles.pixelBtn} ${styles.btnSuccess}`}
-                disabled={parsedRows.length === 0}
+                disabled={parsedRows.length === 0 || isSubmittingImport}
                 onClick={handleConfirmImport}
               >
-                確認執行匯入 ({parsedRows.length} 筆)
+                {isSubmittingImport ? '⏳ 雲端匯入中...' : `確認執行匯入 (${parsedRows.length} 筆)`}
               </button>
             </div>
           </div>

@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { getStoredQuestions } from '@/lib/questionStore'
+import { getFirestoreQuestions } from '@/lib/questionStore'
 import { saveExamSession, ExamSessionAnswer } from '@/lib/examSession'
 import TimerBar from '@/components/TimerBar'
 import ConfirmModal from '@/components/ConfirmModal'
@@ -42,12 +42,15 @@ export default function ExamPage({
   currentIdxRef.current = currentIdx
 
   useEffect(() => {
-    const allStored = getStoredQuestions()
-    const validQs = allStored.filter(q => q.enabled && (q.type === 'choice' || q.type === 'qa'))
-    // Fisher-Yates 隨機洗牌
-    const shuffled = [...validQs].sort(() => Math.random() - 0.5)
-    // 限制最多 20 題
-    setQuestions(shuffled.slice(0, 20))
+    async function loadQuizQuestions() {
+      const allStored = await getFirestoreQuestions()
+      const validQs = allStored.filter(q => q.enabled && (q.type === 'choice' || q.type === 'qa'))
+      // Fisher-Yates 隨機洗牌
+      const shuffled = [...validQs].sort(() => Math.random() - 0.5)
+      // 限制最多 20 題
+      setQuestions(shuffled.slice(0, 20))
+    }
+    loadQuizQuestions()
   }, [])
 
   const currentQ = questions[currentIdx]

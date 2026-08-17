@@ -74,22 +74,30 @@ export default function LoginPage() {
         </button>
 
         {/* 快速模擬登入按鈕（開發測試免登入） */}
-        <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
+        <div style={{ display: 'flex', gap: '6px', width: '100%', marginTop: '12px' }}>
           <button
             id="btn-dev-bypass-examinee"
             className={`btn-pixel btn-secondary ${styles.devBypassBtn}`}
-            style={{ flex: 1, fontSize: '0.8rem' }}
+            style={{ flex: 1, fontSize: '0.75rem', padding: '6px 4px' }}
             onClick={() => devBypassLogin('examinee')}
           >
-            🚀 [DEV] 免登入 (考生)
+            🚀 免登入 (考生)
+          </button>
+          <button
+            id="btn-dev-bypass-supervisor"
+            className={`btn-pixel btn-secondary ${styles.devBypassBtn}`}
+            style={{ flex: 1, fontSize: '0.75rem', padding: '6px 4px', borderColor: '#f39c12', color: '#f39c12' }}
+            onClick={() => devBypassLogin('supervisor')}
+          >
+            👑 免登入 (主管)
           </button>
           <button
             id="btn-dev-bypass-admin"
             className={`btn-pixel btn-secondary ${styles.devBypassBtn}`}
-            style={{ flex: 1, fontSize: '0.8rem', borderColor: '#f39c12', color: '#f39c12' }}
+            style={{ flex: 1, fontSize: '0.75rem', padding: '6px 4px', borderColor: '#4a6fa5', color: '#63b3ed' }}
             onClick={() => devBypassLogin('admin')}
           >
-            👑 [DEV] 免登入 (主管)
+            ⚙️ 免登入 (管理員)
           </button>
         </div>
 

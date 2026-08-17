@@ -1,98 +1,72 @@
 import { QuestionDoc } from '@/types'
-import { MOCK_QUESTIONS, MOCK_ESSAY_QUESTIONS } from '@/lib/mockData'
+import { db } from '@/lib/firebase/client'
+import {
+  collection,
+  getDocs,
+  doc,
+  setDoc,
+  updateDoc,
+  writeBatch,
+  query,
+  where,
+  serverTimestamp
+} from 'firebase/firestore'
 
 const QUESTIONS_STORAGE_KEY = 'cs_game_admin_questions'
-
-// 預設 Demo 題庫（供測試與未上傳 Excel 前備用）
-const DEMO_QUESTIONS: QuestionDoc[] = [
-  {
-    id: 'q-demo-01',
-    type: 'choice',
-    difficulty: 'basic',
-    context: '客戶進線詢問帳號登入問題',
-    content: '當客戶忘記密碼且無法存取註冊 Email 時，標準驗證流程為何？',
-    options: {
-      A: '請客戶提供身分證字號與最後一次消費紀錄',
-      B: '直接協助客戶變更 Email',
-      C: '告知客戶無法處理並掛斷',
-      D: '將密碼發送到任一指定手機號碼',
-    },
-    answer: 'A',
-    explanation: '基於資安規範，需通過第二因子個人資料與交易紀錄雙重核對。',
-    enabled: true,
-    sourceId: 'demo-01',
-    syncedAt: new Date(),
-  },
-  {
-    id: 'q-demo-02',
-    type: 'choice',
-    difficulty: 'medium',
-    context: '線上刷卡失敗情境',
-    content: '客戶反映刷卡失敗顯示錯誤碼 E3001，主要可能原因為何？',
-    options: {
-      A: '伺服器維護中',
-      B: '發卡銀行拒絕交易（額度不足或跨國交易未開通）',
-      C: '網路斷線',
-      D: '系統格式錯誤',
-    },
-    answer: 'B',
-    explanation: 'E3001 為發卡行拒絕交易代碼。',
-    enabled: true,
-    sourceId: 'demo-02',
-    syncedAt: new Date(),
-  },
-  {
-    id: 'q-demo-03',
-    type: 'qa',
-    difficulty: 'medium',
-    context: '退費政策應對情境',
-    content: '請簡述當客戶購買產品超過 7 天鑑賞期，但因特殊理由堅持要求全額退費時的標準處置應對原則。',
-    answer: '先同理客戶心情，說明公司規範政策，並嘗試爭取替代補償方案（如延期或點數回饋）。',
-    explanation: '著重於客戶情緒安撫、條款說明與彈性補償。',
-    enabled: true,
-    sourceId: 'demo-03',
-    syncedAt: new Date(),
-  },
-  {
-    id: 'eq-demo-01',
-    type: 'essay',
-    difficulty: 'advanced',
-    context: '遭遇客訴與重大系統異常通報處理',
-    content: '假設今日平台遭遇重大系統連線中斷，導致大量客戶進線質疑與抱怨。請撰寫一份客服標準應答指南與通報 SOP。',
-    answer: '包含同理心應答、現況告知、工程團隊通報流程與進度關懷追蹤。',
-    explanation: '評估客服綜合同理心、緊急應變與SOP遵循能力。',
-    enabled: true,
-    sourceId: 'demo-eq-01',
-    syncedAt: new Date(),
-  },
-]
-
-const DEFAULT_QUESTIONS: QuestionDoc[] = [...MOCK_QUESTIONS, ...MOCK_ESSAY_QUESTIONS, ...DEMO_QUESTIONS]
+const QUESTIONS_COLLECTION = 'questions'
 
 /**
- * 取得目前所有的題目列表 (SessionStorage + fallback mock)
+ * 從 Firestore 雲端讀取所有題目列表（同步更新 sessionStorage 快照）
+ */
+export async function getFirestoreQuestions(): Promise<QuestionDoc[]> {
+  try {
+    const qSnap = await getDocs(collection(db, QUESTIONS_COLLECTION))
+    const list: QuestionDoc[] = []
+    qSnap.forEach(dSnap => {
+      const data = dSnap.data()
+      list.push({
+        id: dSnap.id,
+        type: data.type,
+        difficulty: data.difficulty,
+        context: data.context || '',
+        content: data.content || '',
+        options: data.options,
+        answer: data.answer || '',
+        explanation: data.explanation || '',
+        enabled: data.enabled ?? true,
+        sourceId: data.sourceId || dSnap.id,
+        syncedAt: data.syncedAt?.toDate ? data.syncedAt.toDate() : new Date(),
+      })
+    })
+    // 寫入本機 SessionStorage 快照
+    saveStoredQuestions(list)
+    return list
+  } catch (e: any) {
+    console.error('❌ Firestore 雲端讀取失敗 (請檢查網絡與 Firebase Security Rules 權限):', e)
+    return getStoredQuestions()
+  }
+}
+
+/**
+ * 取得本機快照題目列表（同步備用）
  */
 export function getStoredQuestions(): QuestionDoc[] {
-  if (typeof window === 'undefined') return DEFAULT_QUESTIONS
+  if (typeof window === 'undefined') return []
   try {
     const raw = sessionStorage.getItem(QUESTIONS_STORAGE_KEY)
-    if (!raw) {
-      sessionStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(DEFAULT_QUESTIONS))
-      return DEFAULT_QUESTIONS
-    }
+    if (!raw) return []
     const parsed = JSON.parse(raw)
     return parsed.map((q: any) => ({
       ...q,
       syncedAt: q.syncedAt ? new Date(q.syncedAt) : new Date()
     }))
   } catch (e) {
-    console.error('Failed to load questions from sessionStorage', e)
-    return DEFAULT_QUESTIONS
+    return []
   }
 }
 
 /**
- * 儲存題目列表
+ * 儲存題目列表至本機 SessionStorage 快照
  */
 export function saveStoredQuestions(questions: QuestionDoc[]): void {
   if (typeof window === 'undefined') return
@@ -104,53 +78,54 @@ export function saveStoredQuestions(questions: QuestionDoc[]): void {
 }
 
 /**
- * 切換單一題目的啟用/停用 (Toggle enabled)
+ * 於 Firestore 雲端新增或更新單一題目 (Upsert)
  */
-export function toggleQuestionEnabled(id: string): QuestionDoc[] {
-  const list = getStoredQuestions()
-  const updated = list.map(q => q.id === id ? { ...q, enabled: !q.enabled } : q)
-  saveStoredQuestions(updated)
-  return updated
-}
-
-/**
- * 新增或修改單一題目 (Upsert)
- */
-export function saveSingleQuestion(question: QuestionDoc): QuestionDoc[] {
-  const list = getStoredQuestions()
-  const index = list.findIndex(q => q.id === question.id)
-  let updated: QuestionDoc[]
-  if (index >= 0) {
-    updated = [...list]
-    updated[index] = { ...question, syncedAt: new Date() }
-  } else {
-    updated = [{ ...question, syncedAt: new Date() }, ...list]
+export async function saveSingleQuestionFirestore(question: QuestionDoc): Promise<QuestionDoc[]> {
+  try {
+    const ref = doc(db, QUESTIONS_COLLECTION, question.id)
+    await setDoc(ref, {
+      ...question,
+      syncedAt: serverTimestamp()
+    }, { merge: true })
+  } catch (e) {
+    console.error('Failed to save question to Firestore:', e)
   }
-  saveStoredQuestions(updated)
-  return updated
+  // 更新本機與回傳最新清單
+  return getFirestoreQuestions()
 }
 
 /**
- * 刪除題目 (軟刪除：設定 enabled=false)
+ * 切換單一題目的啟用/停用 (Firestore 雲端與本機同步)
  */
-export function deleteQuestionSoft(id: string): QuestionDoc[] {
-  const list = getStoredQuestions()
-  const updated = list.map(q => q.id === id ? { ...q, enabled: false } : q)
-  saveStoredQuestions(updated)
-  return updated
+export async function toggleQuestionEnabledFirestore(id: string, currentEnabled: boolean): Promise<QuestionDoc[]> {
+  try {
+    const ref = doc(db, QUESTIONS_COLLECTION, id)
+    await updateDoc(ref, {
+      enabled: !currentEnabled,
+      syncedAt: serverTimestamp()
+    })
+  } catch (e) {
+    console.error('Failed to toggle question enabled state in Firestore:', e)
+  }
+  return getFirestoreQuestions()
 }
 
 /**
- * 批量匯入 Excel 解析出的資料
- * @param parsedRows 解析後的 JSON 列
- * @param mode 'append' (追加) | 'upsert' (更新既有/覆蓋)
+ * 軟刪除題目 (設定 enabled=false)
  */
-export function importQuestionsFromExcel(
+export async function deleteQuestionSoftFirestore(id: string): Promise<QuestionDoc[]> {
+  return toggleQuestionEnabledFirestore(id, true)
+}
+
+/**
+ * 批量將 Excel 解析的資料分批寫入 Firestore 雲端（單次限制 200 筆避免卡住，並提供進度回饋）
+ */
+export async function importQuestionsToFirestore(
   parsedRows: any[],
-  mode: 'append' | 'upsert'
-): { updatedList: QuestionDoc[]; addedCount: number; updatedCount: number; errorCount: number } {
-  const currentList = getStoredQuestions()
-  // 建立以 ID 以及以 (content + type) 為 key 的比對 Map
+  mode: 'append' | 'upsert',
+  onProgress?: (current: number, total: number) => void
+): Promise<{ updatedList: QuestionDoc[]; addedCount: number; updatedCount: number; errorCount: number }> {
+  const currentList = await getFirestoreQuestions()
   const existingIdMap = new Map(currentList.map(q => [q.id, q]))
   const existingContentMap = new Map(currentList.map(q => [`${q.type}__${q.content.trim()}`, q]))
 
@@ -158,10 +133,9 @@ export function importQuestionsFromExcel(
   let updatedCount = 0
   let errorCount = 0
 
-  const newQuestions: QuestionDoc[] = []
+  const preparedDocs: { ref: any; data: any; isUpdate: boolean; doc: QuestionDoc }[] = []
 
   parsedRows.forEach((row, idx) => {
-    // 相容中文與英文欄位名
     const rawType = (row['題型 (type)'] || row['type'] || '').toString().toLowerCase().trim()
     const rawDiff = (row['難易度 (difficulty)'] || row['difficulty'] || '').toString().toLowerCase().trim()
     const context = (row['情境描述 (context)'] || row['context'] || '').toString().trim()
@@ -175,7 +149,6 @@ export function importQuestionsFromExcel(
     const rawEnabled = (row['是否啟用 (enabled)'] || row['enabled'] || 'Y').toString().toUpperCase().trim()
     const existingId = (row['id'] || row['questionId'] || row['sourceId'] || '').toString().trim()
 
-    // 基本校驗
     if (!content || !['choice', 'qa', 'essay'].includes(rawType)) {
       errorCount++
       return
@@ -188,7 +161,6 @@ export function importQuestionsFromExcel(
     let targetId = ''
     let isUpdate = false
 
-    // 優先以 ID 比對；無 ID 時若為 Upsert 模式，則以「題型__題目內容」嘗試比對舊題
     const contentKey = `${type}__${content}`
     if (mode === 'upsert') {
       if (existingId && existingIdMap.has(existingId)) {
@@ -201,7 +173,7 @@ export function importQuestionsFromExcel(
     }
 
     if (!targetId) {
-      targetId = `q-imp-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`
+      targetId = existingId || `q-cloud-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`
     }
 
     const qDoc: QuestionDoc = {
@@ -226,33 +198,35 @@ export function importQuestionsFromExcel(
       }
     }
 
-    if (isUpdate) {
-      existingIdMap.set(targetId, qDoc)
-      updatedCount++
-    } else {
-      newQuestions.push(qDoc)
-      addedCount++
-    }
+    const docRef = doc(db, QUESTIONS_COLLECTION, targetId)
+    preparedDocs.push({
+      ref: docRef,
+      data: { ...qDoc, syncedAt: serverTimestamp() },
+      isUpdate,
+      doc: qDoc
+    })
+
+    if (isUpdate) updatedCount++
+    else addedCount++
   })
 
-  let finalList: QuestionDoc[] = []
-  if (mode === 'upsert') {
-    finalList = Array.from(existingIdMap.values())
-    if (newQuestions.length > 0) {
-      finalList = [...newQuestions, ...finalList]
-    }
-  } else {
-    finalList = [...newQuestions, ...currentList]
+  // 每一批次上傳 200 筆 (Firestore Batch 限制最多 500 筆)
+  const BATCH_SIZE = 200
+  const totalDocs = preparedDocs.length
+
+  for (let i = 0; i < totalDocs; i += BATCH_SIZE) {
+    const chunk = preparedDocs.slice(i, i + BATCH_SIZE)
+    const batch = writeBatch(db)
+    chunk.forEach(item => {
+      batch.set(item.ref, item.data, { merge: true })
+    })
+
+    await batch.commit()
+    const currentProgress = Math.min(i + BATCH_SIZE, totalDocs)
+    if (onProgress) onProgress(currentProgress, totalDocs)
+    console.log(`🚀 已寫入 Firestore 進度: ${currentProgress} / ${totalDocs}`)
   }
 
-  saveStoredQuestions(finalList)
+  const finalList = await getFirestoreQuestions()
   return { updatedList: finalList, addedCount, updatedCount, errorCount }
-}
-
-/**
- * 重設回預設假題庫
- */
-export function resetQuestionsToDefault(): QuestionDoc[] {
-  saveStoredQuestions(DEFAULT_QUESTIONS)
-  return DEFAULT_QUESTIONS
 }

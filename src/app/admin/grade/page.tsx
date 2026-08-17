@@ -39,85 +39,8 @@ export interface PendingExamItem {
   }[]
 }
 
-// 預設幾筆情境測試假考卷資料
-const INITIAL_MOCK_PENDING_EXAMS: PendingExamItem[] = [
-  {
-    examId: 'quiz-exam-demo-002',
-    mode: 'quiz',
-    uid: 'user-examinee-04',
-    displayName: '小火龍 (新人客服 D)',
-    email: 'charmander@example.com',
-    submittedAt: '2026-08-04T15:30:00.000Z',
-    status: 'submitted',
-    choiceScore: 75,
-    answers: [
-      {
-        questionId: 'q-demo-03',
-        userAnswer: '針對超過 7 天鑑賞期的退款申請，我會先表達同理：「非常理解您的處境」，並向客戶說明公司的退換貨規範。接著主動提供折抵券或延長使用期限的替代方案，減緩客戶的不滿。',
-        timeExpired: false,
-        questionDoc: {
-          id: 'q-demo-03',
-          type: 'qa',
-          content: '請簡述當客戶購買產品超過 7 天鑑賞期，但因特殊理由堅持要求全額退費時的標準處置應對原則。',
-          context: '退費政策應對情境',
-          difficulty: 'medium',
-          answer: '先同理客戶心情，說明公司規範政策，並嘗試爭取替代補償方案（如延期或點數回饋）。'
-        }
-      }
-    ]
-  },
-  {
-    examId: 'quiz-exam-demo-001',
-    mode: 'quiz',
-    uid: 'user-examinee-03',
-    displayName: '皮卡丘 (新人客服 C)',
-    email: 'pikachu@example.com',
-    submittedAt: '2026-08-04T12:00:00.000Z',
-    status: 'submitted',
-    choiceScore: 60,
-    answers: [
-      {
-        questionId: 'qa-demo-01',
-        userAnswer: '客戶要求無條件退款時，先同理客戶心情，說明退款相關政策規範，並協助爭取替代補償方案。',
-        timeExpired: false,
-        questionDoc: {
-          id: 'qa-demo-01',
-          type: 'qa',
-          content: '請簡述當客戶要求無條件退費時，標準應答作業流程。',
-          context: '客戶購買課程後超過鑑賞期要求退費',
-          difficulty: 'medium',
-          answer: '同理說明政策，提供替代方案'
-        }
-      }
-    ]
-  },
-  {
-    examId: 'essay-exam-demo-001',
-    mode: 'essay',
-    uid: 'user-examinee-01',
-    displayName: '菇菇寶貝 (新人客服 A)',
-    email: 'mushroom@example.com',
-    submittedAt: '2026-08-04T10:30:00.000Z',
-    status: 'submitted',
-    answers: [
-      {
-        questionId: 'eq-001',
-        userAnswer: '首先我會用平穩且具專業感的手調向客戶致歉：「非常抱歉讓您久等了，我是客服人員小蘑，我完全能理解您等待時的心情...」接著立刻切入重點幫他確認帳號資料，不再使用敷衍詞彙。',
-        timeExpired: false,
-      },
-      {
-        questionId: 'eq-002',
-        userAnswer: '流程：1. 確認配送地址與收件人 2. 聯繫 logistics 物流特快車專線 3. 告知客戶預計追蹤回覆時程。先安撫再追查，避免盲目承諾。',
-        timeExpired: false,
-      },
-      {
-        questionId: 'eq-003',
-        userAnswer: '針對超過30天要求退款，我會先傾聽他的不滿，再說明30天政策與保障。接著爭取「免費升級原廠保固額度」作為特別替代方案，讓客戶感受到重視。',
-        timeExpired: true, // 這題超時自動提交
-      }
-    ]
-  }
-]
+// 預設考卷資料（潔淨狀態，無假資料）
+const INITIAL_MOCK_PENDING_EXAMS: PendingExamItem[] = []
 
 export default function AdminGradePage() {
   // 從 sessionStorage 或預設假資料載入考卷清單

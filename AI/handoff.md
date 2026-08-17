@@ -10,7 +10,7 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：✅ 綜合模式問答題主管批改重構完成，已通過全靜態頁面 build 與型別檢查，準備開發獨立 `/admin/settings` 後台與登入權限串接
+**專案階段**：✅ 假資料全面刪除潔淨、獨立 `/admin/settings` Admin 權限設定頁面完成、Firestore `questions` 題庫分批寫入與 `users` Auth 同步串接完成，準備於明日進行考場 `exams` Collection 雲端作答寫入
 **分支**：`feat/phase1-auth`
 **PRD 版本**：v1.1
 **最後更新**：2026-08-17
@@ -22,46 +22,60 @@
 - [x] Next.js 16 + TypeScript 專案初始化
 - [x] Firebase Client / Admin SDK 設定
 - [x] TypeScript 型別定義（所有 Firestore collection）
-- [x] AuthContext（Google 登入、userDoc 同步、角色、Admin 清單自動比對、保留 DEV 雙角色快速免登入）
+- [x] AuthContext（Google 登入、userDoc 同步、角色、Admin 清單自動比對、保留 DEV 三角色免登入）
 - [x] 路由守衛 proxy.ts（Next.js 16 規範）
 - [x] globals.css 像素風格 Design Token 系統
-- [x] 登入頁面（`/login`，含 DEV 免登入考生/主管快捷鍵）
-- [x] 首次設定顯示名稱頁面（`/setup`）
-- [x] 首頁大廳（`/`，含綜合/申論模式卡片與主管批改快捷按鈕）
-- [x] Dev 環境 auth bypass（proxy.ts + AuthContext timeout + mock user）
-- [x] 共用題庫 `src/lib/mockData.ts` 假資料清空 + SessionStorage 工具 `src/lib/examSession.ts`
-- [x] `TimerBar` 共用元件（`src/components/TimerBar/`）
-- [x] 綜合模式考試大廳（`/exam/quiz/lobby`）
-- [x] 綜合模式作答頁（`/exam/quiz/[examId]`，含計時、選擇題/問答題）
-- [x] 成績結果頁（`/exam/quiz/[examId]/result`）
-- [x] 錯題回顧頁（`/exam/quiz/[examId]/review`）
-- [x] React state-in-render bug 與 Hydration mismatch / Hooks 順序修復
-- [x] Phase 2：申論模式大廳（`/exam/essay/lobby`）
-- [x] Phase 2：申論模式作答頁（`/exam/essay/[examId]`，每題 10 分鐘，含 Lock 機制）
-- [x] Phase 2：申論模式結果頁（`/exam/essay/[examId]/result`，等待批改狀態與作答預覽）
-- [x] Phase 2：主管批改後台（`/admin/grade`，支援作答檢視、逐題評分打分、評語填寫與解鎖）
-- [x] 題庫匯入規劃與 Excel 標準範本生成（`public/question_import_template.xlsx`，含原生 Data Validation 下拉選單）
-- [x] Phase 2：題庫管理與 Excel 匯入/編輯/軟刪除後台（`/admin/questions`）
-- [x] Phase 3：冒險排行榜頁面（`/leaderboard`，支援綜合最高分榜與申論榮譽榜）
-- [x] Phase 3：個人歷史成績與錯題記錄頁（`/profile/results`，支援統計摘要與申論評語檢視）
-- [x] Phase 3：主管專屬團隊考核進度與狀況总覽（`/admin/users`）
-- [x] 客製化像素風格二次確認彈窗（`ConfirmModal`，應用於離開考試防誤觸）
-- [x] Phase 1：成績自動寫入 / 匯出至 Google Sheets（`src/lib/googleSheets.ts` 與 `/api/export-score`）
-- [x] 考題假資料清空（`MOCK_QUESTIONS` / `MOCK_ESSAY_QUESTIONS` 設為空陣列，準備匯入真實題庫）
-- [x] 隨機抽題機制（綜合模式隨機抽取上限 20 題，申論模式隨機抽取上限 10 題）
-- [x] 定案綜合模式問答題改採主管人工批改與排行榜採計規範 (DEC-008, 方案 A)
-- [x] 重構綜合模式考試作答與結果頁 (`/exam/quiz/[examId]`)：選擇題即時算分，問答題自動進入 `submitted` 待審核狀態
-- [x] 升級主管批改後台 (`/admin/grade`)：整合「綜合模式 (Quiz)」與「申論模式 (Essay)」跨模式考卷篩選、問答題打分與評語
-- [x] 調整排行榜與個人成績頁 (`/leaderboard` & `/profile/results`)：落實方案 A，待主管批改完成 (`status: 'graded'`) 後才更新排行榜與寫入 Google Sheets
+- [x] 登入頁面（`/login`，含 DEV 免登入考生/主管/管理員快捷鍵）
+- [x] 首次設定顯示名稱頁面（`/setup`，支援與 Firestore users 同步）
+- [x] 首頁大廳（`/`，含綜合/申論模式卡片與主管批改/Admin Settings 權限分開展示）
+- [x] 假資料全面清空（歷史紀錄、DEMO 題庫、待批改考卷、大廳範例紀錄全數清空）
+- [x] 開發獨立系統權限與參數管理後台 (`/admin/settings`，支援 Admin Email 名單動態授權與合格分數/限時參數設定)
+- [x] 權限邊界隔離：主管 (Supervisor) 選單與頁面絕不展示或存取 `/admin/settings`（加入嚴格 Role Guard）
+- [x] 題庫與 Firestore `questions` 雲端集合串接（`src/lib/questionStore.ts` 支持雲端讀取、單筆編輯與軟刪除）
+- [x] 題庫後台 Excel 匯入優化 (`/admin/questions`)：新增每 200 筆 chunk 分批 commit 寫入與 UI 即時進度跳動提示 (onProgress)
+- [x] 考場隨機抽題 (`/exam/quiz/[examId]` & `/exam/essay/[examId]`)：改為實時從 Firestore `questions` 抓取 enabled 題庫抽題
+- [x] Google Auth 與 Firestore `users/{uid}` 同步建檔（首次 Google 登入自動比對 Admin 並寫入使用者文件）
 
 ### 下次待辦
-- [ ] 開發獨立的「`/admin/settings` 系統權限與 Admin 名單後台」
-- [ ] 處理登入權限與真實帳號測試（Firestore `users` 集合同步與權限控管）
-- [ ] 串接 Firebase 真實資料（替換 mockData + examSession + questionStore + historyStore → Firestore）
+- [ ] 考試作答 Sessions 雲端寫入（將 `examSession.ts` 暫存結構改為實時寫入 Firestore `exams` 集合）
+- [ ] 主管批改後台 (`/admin/grade`) 串接 Firestore `exams` 集合（即時讀取 `status === 'submitted'` 待批改考卷）
+- [ ] 排行榜與個人紀錄 (`/leaderboard` & `/profile/results`) 改為從 Firestore 雲端查詢實時榜單
 
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-08-17 | 假資料清空、/admin/settings 權限設定頁、Firestore 題庫與 Auth 雲端串接
+
+**負責人**：AI  
+**開發時長**：約 2.5 小時
+
+#### ✅ 今日完成
+1. **假資料全面刪除**：
+   - 清空 `DEFAULT_MOCK_HISTORY`、`DEMO_QUESTIONS` 與 `/admin/grade` 預設 pending 考卷，使系統恢復潔淨狀態。
+2. **開發獨立系統權限與參數設定頁 (`/admin/settings`)**：
+   - 支援線上動態新增/移除 Admin Email 授權清單。
+   - 支援設定合格門檻分數 (預設 90 分)、綜合/申論題數上限與單題限時秒數。
+3. **權限邊界嚴格隔離**：
+   - 修正首頁主管選單，只有真正的管理者角色 (`userDoc.role === 'admin'`) 才能看到與存取 `/admin/settings`。
+   - 在 Settings 頁面頂層加入動態 Route Guard 攔截非 Admin 存取。
+4. **Firestore 題庫雲端串接與 Excel 匯入優化**：
+   - 將 `questionStore.ts` 升級為讀寫 Firestore `questions` 集合。
+   - 解決上傳時間過長與卡住問題：實現每批 200 筆 `writeBatch` 分批上傳，並在 Modal 加入即時寫入進度提示 (`🚀 正在寫入雲端 Firestore (X / Y 筆)...`)。
+   - 驗證成功完成 Excel 題庫批量導入雲端。
+5. **Google 帳號登入與 Firestore `users` 集合成員同步**：
+   - 升級 `AuthContext.tsx` 與 `/setup` 頁面，首次使用 Google 登入自動於 Firestore `users/{uid}` 建立使用者文件與角色。
+
+#### ⚠️ 遭遇問題
+- **Firestore Permission / Database 未建立問題**：初期上傳卡住係因 Firebase 控制台中未創建 Cloud Firestore Database。指示使用者在 Firebase Console 啟用資料庫與 Test Rules 後即成功匯入。
+
+#### ⏭️ 下次開始
+1. 考試 Sessions 改寫入 Firestore `exams` 集合
+2. 主管批改頁面與排行榜改讀寫 Firestore `exams` 雲端考卷
+
+---
 
 ---
 

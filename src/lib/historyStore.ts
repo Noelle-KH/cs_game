@@ -15,59 +15,8 @@ export interface ExamHistoryItem {
 
 const HISTORY_STORAGE_KEY = 'cs_game_history_list'
 
-// 預設模擬排行榜歷史紀錄（當使用者尚未有任何考試時展示）
-const DEFAULT_MOCK_HISTORY: ExamHistoryItem[] = [
-  {
-    id: 'hist-001',
-    mode: 'quiz',
-    displayName: '客服大師 艾倫',
-    score: 95,
-    maxScore: 100,
-    passed: true,
-    status: 'graded',
-    date: '2026-08-04 14:20',
-  },
-  {
-    id: 'hist-002',
-    mode: 'quiz',
-    displayName: '資深客服 貝蒂',
-    score: 90,
-    maxScore: 100,
-    passed: true,
-    status: 'graded',
-    date: '2026-08-04 11:15',
-  },
-  {
-    id: 'hist-003',
-    mode: 'essay',
-    displayName: '冒險勇者 查理',
-    score: 92,
-    maxScore: 100,
-    passed: true,
-    status: 'graded',
-    date: '2026-08-03 16:45',
-  },
-  {
-    id: 'hist-004',
-    mode: 'quiz',
-    displayName: '新人客服 戴安娜',
-    score: 85,
-    maxScore: 100,
-    passed: false,
-    status: 'graded',
-    date: '2026-08-03 09:30',
-  },
-  {
-    id: 'hist-005',
-    mode: 'essay',
-    displayName: '客服戰士 查理',
-    score: 88,
-    maxScore: 100,
-    passed: false,
-    status: 'graded',
-    date: '2026-08-02 18:10',
-  },
-]
+// 預設歷史紀錄（潔淨狀態，無假資料）
+const DEFAULT_MOCK_HISTORY: ExamHistoryItem[] = []
 
 /**
  * 取得全部歷史成績列表

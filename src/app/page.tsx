@@ -192,14 +192,14 @@ export default function HomePage() {
             )}
 
             {/* 主管專屬：批改、團隊進度追蹤與題庫管理 */}
-            {currentRole === 'supervisor' && (
+            {(currentRole === 'supervisor' || userDoc.role === 'admin') && (
               <>
                 <button
                   id="btn-admin-grade"
                   className={`btn-pixel btn-primary ${styles.adminBtn}`}
                   onClick={() => router.push('/admin/grade')}
                 >
-                  👑 審核與批改申論題 (Grade)
+                  👑 審核與批改考卷 (Grade)
                 </button>
                 <button
                   id="btn-admin-users"
@@ -216,6 +216,24 @@ export default function HomePage() {
                   📚 題庫管理與 Excel 匯入 (Questions)
                 </button>
               </>
+            )}
+
+            {/* 系統管理員 (Admin) 專屬：權限與參數設定（僅 userDoc.role === 'admin' 渲染） */}
+            {userDoc.role === 'admin' && (
+              <button
+                id="btn-admin-settings"
+                className={`btn-pixel ${styles.adminBtn}`}
+                style={{
+                  backgroundColor: '#3182ce',
+                  borderColor: '#63b3ed',
+                  color: '#ffffff',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 12px rgba(49, 130, 206, 0.4)'
+                }}
+                onClick={() => router.push('/admin/settings')}
+              >
+                ⚙️ 系統權限與參數管理 (Admin Only)
+              </button>
             )}
           </div>
         </section>

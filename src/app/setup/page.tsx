@@ -42,14 +42,17 @@ export default function SetupPage() {
     setError('')
 
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        email: user.email,
-        displayName: trimmed,
-        role: 'examinee',        // 預設角色為考生
-        createdAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp(),
-      })
+      await setDoc(
+        doc(db, 'users', user.uid),
+        {
+          uid: user.uid,
+          email: user.email,
+          displayName: trimmed,
+          role: userDoc?.role || 'examinee',
+          lastLoginAt: serverTimestamp(),
+        },
+        { merge: true }
+      )
       await refreshUserDoc()
       router.replace('/')
     } catch (err) {
