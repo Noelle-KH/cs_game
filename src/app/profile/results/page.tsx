@@ -4,15 +4,26 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import styles from './results.module.css'
 import { useAuth } from '@/contexts/AuthContext'
-import { getStoredHistory, ExamHistoryItem } from '@/lib/historyStore'
+import { getUserExamsFirestore, CloudExamDoc } from '@/lib/examStore'
 
 export default function ProfileResultsPage() {
-  const { userDoc } = useAuth()
-  const [historyList, setHistoryList] = useState<ExamHistoryItem[]>([])
+  const { user, userDoc } = useAuth()
+  const [historyList, setHistoryList] = useState<CloudExamDoc[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(true)
 
   useEffect(() => {
-    setHistoryList(getStoredHistory())
-  }, [])
+    async function loadCloudHistory() {
+      if (user?.uid) {
+        setLoadingHistory(true)
+        const cloudExams = await getUserExamsFirestore(user.uid)
+        setHistoryList(cloudExams)
+        setLoadingHistory(false)
+      } else {
+        setLoadingHistory(false)
+      }
+    }
+    loadCloudHistory()
+  }, [user])
 
   const displayName = userDoc?.displayName || '客服勇者'
 
@@ -82,7 +93,13 @@ export default function ProfileResultsPage() {
             </tr>
           </thead>
           <tbody>
-            {historyList.length === 0 ? (
+            {loadingHistory ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: '#94a3b8' }}>
+                  ⏳ 正在載入雲端個人考卷紀錄...
+                </td>
+              </tr>
+            ) : historyList.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', padding: 24 }}>
                   尚無任何歷史考試記錄
@@ -92,11 +109,11 @@ export default function ProfileResultsPage() {
               historyList.map((item) => (
                 <tr key={item.id}>
                   <td style={{ fontWeight: 'bold', color: '#f8fafc' }}>
-                    {item.mode === 'quiz' ? '客服綜合能力隨機抽考' : '客服實務情境申論特訓'}
+                    {item.mode === 'quiz' ? '客服綜合能力隨用抽考' : '客服實務情境申論特訓'}
                   </td>
                   <td>{item.mode === 'quiz' ? '⚔️ 綜合' : '📝 申論'}</td>
                   <td style={{ fontWeight: 'bold', color: '#4ade80', fontSize: '1.05rem' }}>
-                    {item.score} / {item.maxScore}
+                    {item.score} / {item.totalPossibleScore || 100}
                   </td>
                   <td>
                     <span
@@ -109,15 +126,17 @@ export default function ProfileResultsPage() {
                         color: '#fff',
                       }}
                     >
-                      {item.passed ? 'PASS 通過' : 'FAIL 未通過'}
+                      {item.status === 'submitted' ? '⏳ 審核中' : item.passed ? 'PASS 通過' : 'FAIL 未通過'}
                     </span>
                   </td>
                   <td>
                     <span style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
-                      {item.status === 'graded' ? '已完成評分' : '待主管審核'}
+                      {item.status === 'graded' ? '已完成評分' : item.status === 'submitted' ? '待主管審核' : '作答中'}
                     </span>
                   </td>
-                  <td style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{item.date}</td>
+                  <td style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                    {item.startedAt?.toLocaleDateString ? item.startedAt.toLocaleDateString() : '最近測驗'}
+                  </td>
                   <td>
                     {item.mode === 'quiz' ? (
                       <Link
@@ -131,9 +150,9 @@ export default function ProfileResultsPage() {
                       <Link
                         href={`/exam/essay/${item.id}/result`}
                         className={styles.navBtn}
-                        style={{ padding: '4px 10px', fontSize: '0.75rem', borderColor: '#38bdf8', color: '#38bdf8' }}
+                        style={{ padding: '4px 10px', fontSize: '0.75rem', backgroundColor: '#3b82f6' }}
                       >
-                        📝 檢視閱卷評語
+                        📄 查看卷面評語
                       </Link>
                     )}
                   </td>

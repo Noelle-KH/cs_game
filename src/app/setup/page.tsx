@@ -8,14 +8,14 @@ import { db } from '@/lib/firebase/client'
 import styles from './page.module.css'
 
 export default function SetupPage() {
-  const { user, userDoc, loading, refreshUserDoc } = useAuth()
+  const { user, userDoc, userDocLoaded, loading, refreshUserDoc } = useAuth()
   const router = useRouter()
   const [displayName, setDisplayName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && userDocLoaded) {
       if (!user) {
         router.replace('/login')
       } else if (userDoc?.displayName) {
@@ -23,7 +23,7 @@ export default function SetupPage() {
         router.replace('/')
       }
     }
-  }, [loading, user, userDoc, router])
+  }, [loading, userDocLoaded, user, userDoc, router])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

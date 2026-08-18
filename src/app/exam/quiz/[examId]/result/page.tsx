@@ -8,6 +8,8 @@ import styles from './page.module.css'
 
 const IS_DEV = process.env.NODE_ENV === 'development'
 
+import { getExamByIdFirestore } from '@/lib/examStore'
+
 export default function ResultPage({
   params,
 }: {
@@ -17,52 +19,54 @@ export default function ResultPage({
   const router = useRouter()
   const [session, setSession] = useState<ExamSession | null>(null)
   const [showScore, setShowScore] = useState(false)
+  const [loadingResult, setLoadingResult] = useState(true)
 
   useEffect(() => {
-    const data = loadExamSession(examId)
-    if (!data && !IS_DEV) {
-      router.replace('/exam/quiz/lobby')
-      return
-    }
-    // DEV fallback：若無 session，產生一筆假的
-    const effective = data ?? MOCK_SESSION(examId)
-    setSession(effective)
+    async function fetchResultData() {
+      setLoadingResult(true)
+      // 1. 優先從 Firestore 讀取最新雲端考卷狀態與得分
+      const cloudExam = await getExamByIdFirestore(examId)
+      if (cloudExam) {
+        const choiceQs = cloudExam.answers.filter(a => a.questionDoc?.type === 'choice')
+        const qaQs = cloudExam.answers.filter(a => a.questionDoc?.type === 'qa')
+        const correctChoice = choiceQs.filter(a => a.isCorrect === true).length
 
-    // 雙向記錄至 historyStore
-    if (effective) {
-      const isGraded = effective.status === 'graded'
-      addHistoryRecord({
-        id: effective.examId,
-        mode: 'quiz',
-        displayName: effective.displayName || '客服勇者',
-        score: effective.score,
-        maxScore: effective.maxScore,
-        passed: isGraded ? effective.passed : false,
-        status: effective.status || 'submitted',
-        date: new Date(effective.submittedAt || Date.now()).toLocaleString('zh-TW', { hour12: false }).slice(0, 16),
-        details: effective
-      })
-
-      // 只有在全選擇題（即時 graded）時才自動發送 Google Sheets 匯出；若含有問答題 (submitted)，改由主管完成批改後觸發
-      if (isGraded) {
-        fetch('/api/export-score', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: 'examinee@example.com', // 未來串接 Auth 時帶入真實 Auth Email
-            displayName: effective.displayName || '客服勇者',
-            date: new Date(effective.submittedAt || Date.now()).toLocaleString('zh-TW', { hour12: false }),
-            mode: 'quiz',
-            score: effective.score,
-            maxScore: effective.maxScore,
-            passed: effective.passed,
-            attemptCount: 1,
-          })
-        }).then(res => res.json())
-          .then(resData => console.log('📊 [GoogleSheets Sync]', resData))
-          .catch(err => console.error('📊 [GoogleSheets Sync Error]', err))
+        const fetchedSession: ExamSession = {
+          examId: cloudExam.id,
+          mode: cloudExam.mode as 'quiz',
+          displayName: cloudExam.displayName,
+          status: cloudExam.status,
+          score: cloudExam.score,
+          choiceScore: cloudExam.choiceScore,
+          maxScore: 100,
+          passed: cloudExam.passed,
+          correctCount: correctChoice,
+          totalChoice: choiceQs.length,
+          totalQa: qaQs.length,
+          expiredCount: 0,
+          answeredCount: cloudExam.answers.length,
+          answers: cloudExam.answers.map(a => ({
+            questionId: a.questionId,
+            userAnswer: a.userAnswer,
+            isCorrect: a.isCorrect,
+            score: a.score,
+            comment: a.feedback,
+            timeExpired: false,
+            questionDoc: a.questionDoc,
+          })),
+          submittedAt: cloudExam.submittedAt?.toISOString ? cloudExam.submittedAt.toISOString() : new Date().toISOString(),
+        }
+        setSession(fetchedSession)
+      } else {
+        // Fallback: 本地 sessionStorage
+        const localData = loadExamSession(examId)
+        if (localData) setSession(localData)
       }
+      setLoadingResult(false)
     }
+
+    fetchResultData()
+
     // 分數動畫：短暫延遲後顯示
     const t = setTimeout(() => setShowScore(true), 400)
     return () => clearTimeout(t)
@@ -116,7 +120,7 @@ export default function ResultPage({
           <div className={styles.scoreSection}>
             <div className={`${styles.scoreCircle} ${isSubmitted ? '' : (passed ? styles.scoreCirclePassed : styles.scoreCircleFailed)}`} style={isSubmitted ? { borderColor: '#4a6fa5' } : undefined}>
               <span className={`pixel-title ${styles.scoreNumber} ${showScore ? styles.scoreVisible : ''}`}>
-                {showScore ? (session.choiceScore ?? score) : '—'}
+                {showScore ? (isSubmitted ? (session.choiceScore ?? score) : score) : '—'}
               </span>
               <span className={styles.scoreMax}>/ 100</span>
             </div>
@@ -124,7 +128,7 @@ export default function ResultPage({
               <p className={styles.scoreNote}>
                 {isSubmitted
                   ? `📝 選擇題得分：${session.choiceScore ?? score} 分（問答題待主管評分）`
-                  : (passed ? '✅ 已達通過門檻（90 分）' : `❌ 距通過門檻還差 ${90 - score} 分`)}
+                  : `🎉 最終總成績：${score} 分 (${passed ? '✅ 已達通過門檻 90 分' : `❌ 距通過門檻還差 ${90 - score} 分`})`}
               </p>
             </div>
           </div>

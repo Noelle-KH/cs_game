@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserDoc } from '@/types'
@@ -16,9 +16,7 @@ const DEV_MOCK_USERDO: UserDoc = {
   lastLoginAt: new Date(),
 }
 
-// 歷史與分數統計（潔淨狀態）
-const MOCK_HISTORY: any[] = []
-const MOCK_BEST_SCORE = 0
+import { createExamFirestore, getUserExamsFirestore } from '@/lib/examStore'
 
 const QUIZ_RULES = [
   { icon: '📋', label: '題型', value: '選擇題 + 問答題混合，共 20 題' },
@@ -52,15 +50,47 @@ export default function QuizLobbyPage() {
     else router.push('/login')
   }
 
+  // 載入該使用者的雲端歷史成績
+  const [cloudExams, setCloudExams] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(true)
+
+  useEffect(() => {
+    async function loadHistory() {
+      if (user?.uid) {
+        setLoadingHistory(true)
+        const exams = await getUserExamsFirestore(user.uid)
+        setCloudExams(exams.filter(e => e.mode === 'quiz'))
+        setLoadingHistory(false)
+      } else {
+        setLoadingHistory(false)
+      }
+    }
+    loadHistory()
+  }, [user])
+
+  const bestScore = cloudExams.length > 0 
+    ? Math.max(...cloudExams.map(e => e.score || 0)) 
+    : 0
+
   async function handleStart() {
     setIsStarting(true)
-    // TODO: 呼叫 Firebase Function 建立 exam doc，取得 examId
-    // const examId = await createExam('quiz')
-    // router.push(`/exam/quiz/${examId}`)
-
-    // 假資料：直接跳轉到假的 examId
-    await new Promise((r) => setTimeout(r, 800)) // 模擬 loading
-    router.push('/exam/quiz/mock-exam-id-001')
+    try {
+      const newExamId = `quiz-${Date.now()}`
+      // 初步創建雲端考卷集合紀錄
+      await createExamFirestore({
+        id: newExamId,
+        uid: user?.uid || 'dev-examinee-uid',
+        userEmail: user?.email || 'examinee@example.com',
+        displayName: userDoc?.displayName || '客服勇者',
+        mode: 'quiz',
+        answers: [],
+      })
+      router.push(`/exam/quiz/${newExamId}`)
+    } catch (e) {
+      console.error('Failed to create quiz exam in Firestore:', e)
+      alert('建立雲端考場失敗，請檢查網路連線！')
+      setIsStarting(false)
+    }
   }
 
   return (
@@ -114,8 +144,8 @@ export default function QuizLobbyPage() {
             {/* 最高分顯示 */}
             <div className={styles.bestScoreBox}>
               <span className={styles.bestScoreLabel}>🏆 個人最高分</span>
-              <span className={`pixel-title ${styles.bestScoreValue} ${MOCK_BEST_SCORE >= 90 ? styles.passed : styles.failed}`}>
-                {MOCK_BEST_SCORE} 分
+              <span className={`pixel-title ${styles.bestScoreValue} ${bestScore >= 90 ? styles.passed : styles.failed}`}>
+                {bestScore} 分
               </span>
             </div>
 
@@ -138,22 +168,28 @@ export default function QuizLobbyPage() {
           <section className={`pixel-panel ${styles.historyPanel}`}>
             <h2 className={`pixel-title ${styles.panelTitle}`}>📊 歷次成績</h2>
 
-            {MOCK_HISTORY.length === 0 ? (
+            {loadingHistory ? (
+              <div className={styles.emptyHistory}>
+                <p>⏳ 正在讀取雲端歷次紀錄...</p>
+              </div>
+            ) : cloudExams.length === 0 ? (
               <div className={styles.emptyHistory}>
                 <p>尚無考試記錄</p>
                 <p className={styles.emptyHint}>完成第一次考試後記錄將顯示於此</p>
               </div>
             ) : (
               <div className={styles.historyList}>
-                {MOCK_HISTORY.map((exam, idx) => (
+                {cloudExams.map((exam, idx) => (
                   <div key={exam.id} className={`${styles.historyCard} ${exam.passed ? styles.cardPassed : styles.cardFailed}`}>
                     <div className={styles.historyRank}>
                       {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
                     </div>
                     <div className={styles.historyInfo}>
-                      <span className={styles.historyDate}>{exam.date}</span>
+                      <span className={styles.historyDate}>
+                        {exam.startedAt?.toLocaleDateString ? exam.startedAt.toLocaleDateString() : '最近測驗'}
+                      </span>
                       <span className={styles.historyCorrect}>
-                        答對 {exam.correctQ} / {exam.totalQ} 題
+                        選擇題得分 {exam.choiceScore} 分
                       </span>
                     </div>
                     <div className={styles.historyScoreWrap}>
@@ -162,7 +198,7 @@ export default function QuizLobbyPage() {
                       </span>
                       <span className={styles.historyUnit}>分</span>
                       <span className={`${styles.historyBadge} ${exam.passed ? styles.badgePassed : styles.badgeFailed}`}>
-                        {exam.passed ? '✅ 通過' : '❌ 未通過'}
+                        {exam.status === 'submitted' ? '⏳ 待主管審核' : exam.passed ? '✅ 通過' : '❌ 未通過'}
                       </span>
                     </div>
                   </div>

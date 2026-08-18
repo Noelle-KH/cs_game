@@ -3,7 +3,8 @@
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { loadExamSession, ExamSession, ExamSessionAnswer } from '@/lib/examSession'
-import { getStoredQuestions } from '@/lib/questionStore'
+import { getExamByIdFirestore } from '@/lib/examStore'
+import { getFirestoreQuestions } from '@/lib/questionStore'
 import { QuestionDoc } from '@/types'
 import styles from './page.module.css'
 
@@ -21,32 +22,74 @@ export default function ReviewPage({
   const [session, setSession] = useState<ExamSession | null>(null)
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [filter, setFilter] = useState<ReviewFilter>('all')
+  const [cloudQuestionsList, setCloudQuestionsList] = useState<QuestionDoc[]>([])
+  const [loadingSession, setLoadingSession] = useState(true)
 
   useEffect(() => {
-    const data = loadExamSession(examId)
-    if (!data && !IS_DEV) {
-      router.replace(`/exam/quiz/${examId}/result`)
-      return
-    }
-    setSession(data ?? MOCK_REVIEW_SESSION(examId))
-  }, [examId, router])
+    async function loadReviewData() {
+      setLoadingSession(true)
+      // 1. 優先試圖從 Firestore 加載
+      const cloudExam = await getExamByIdFirestore(examId)
+      if (cloudExam) {
+        setSession({
+          examId: cloudExam.id,
+          mode: cloudExam.mode as 'quiz',
+          displayName: cloudExam.displayName,
+          status: cloudExam.status,
+          score: cloudExam.score,
+          choiceScore: cloudExam.choiceScore,
+          maxScore: 100,
+          passed: cloudExam.passed,
+          correctCount: cloudExam.answers.filter(a => a.isCorrect === true).length,
+          totalChoice: cloudExam.answers.filter(a => a.questionDoc?.type === 'choice').length,
+          totalQa: cloudExam.answers.filter(a => a.questionDoc?.type === 'qa').length,
+          expiredCount: 0,
+          answeredCount: cloudExam.answers.length,
+          answers: cloudExam.answers.map(a => ({
+            questionId: a.questionId,
+            userAnswer: a.userAnswer,
+            isCorrect: a.isCorrect,
+            score: a.score,
+            comment: a.feedback,
+            timeExpired: false,
+            questionDoc: a.questionDoc,
+          })),
+          submittedAt: cloudExam.submittedAt?.toISOString ? cloudExam.submittedAt.toISOString() : new Date().toISOString(),
+        })
+      } else {
+        // Fallback: 嘗試讀取本地 sessionStorage
+        const localData = loadExamSession(examId)
+        if (localData) {
+          setSession(localData)
+        }
+      }
 
-  if (!session) {
+      // 加載雲端題庫集合供備案比對
+      const allCloudQs = await getFirestoreQuestions()
+      setCloudQuestionsList(allCloudQs)
+      setLoadingSession(false)
+    }
+
+    loadReviewData()
+  }, [examId])
+
+  if (loadingSession || !session) {
     return (
       <div className={styles.loading}>
-        <p className="pixel-title animate-float">載入回顧中...</p>
+        <p className="pixel-title animate-float">載入雲端考卷與錯題中...</p>
       </div>
     )
   }
 
-  // 取得目前系統庫中的所有題目 Map
-  const storedQuestions = getStoredQuestions()
-  const storedMap = new Map(storedQuestions.map((q) => [q.id, q]))
+  const cloudMap = new Map(cloudQuestionsList.map(q => [q.id, q]))
 
-  // 組合：answer record + question doc（優先從 ans.questionDoc 讀取，若無則從 storedMap 查找）
+  // 組合：answer record + question doc（優先從 ans.questionDoc 讀取，次取 ID Match，再次取內容 Match）
   const reviewed = session.answers
-    .map((ans) => {
-      const qDoc = ans.questionDoc || storedMap.get(ans.questionId)
+    .map((ans, idx) => {
+      let qDoc: QuestionDoc | undefined = ans.questionDoc
+      if (!qDoc) {
+        qDoc = cloudMap.get(ans.questionId) || cloudQuestionsList.find(q => q.content === ans.questionId) || cloudQuestionsList[idx]
+      }
       return {
         ans,
         q: qDoc as QuestionDoc | undefined,
@@ -54,9 +97,12 @@ export default function ReviewPage({
     })
     .filter((item) => item.q !== undefined) as { ans: ExamSessionAnswer; q: QuestionDoc }[]
 
-  // 篩選（包含選擇題答錯與問答題未吻合正解答錯）
+  // 篩選（包含選擇題答錯與問答題未獲滿分者）
   const filtered = reviewed.filter((item) => {
-    if (filter === 'wrong') return item.ans.isCorrect === false
+    if (filter === 'wrong') {
+      // 只要不是答對 (isCorrect !== true) 或者是超時/答錯，均進入錯題
+      return item.ans.isCorrect === false || (item.q.type === 'choice' && item.ans.isCorrect !== true)
+    }
     if (filter === 'expired') return item.ans.timeExpired
     return true
   })

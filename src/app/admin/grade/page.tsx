@@ -15,6 +15,8 @@ import {
   ExamSession,
   saveExamSession
 } from '@/lib/examSession'
+import { useAuth } from '@/contexts/AuthContext'
+import { getPendingExamsFirestore, gradeExamFirestore } from '@/lib/examStore'
 import { addHistoryRecord } from '@/lib/historyStore'
 
 // 定義通用後台考卷型別（包含申論與綜合模式）
@@ -25,7 +27,7 @@ export interface PendingExamItem {
   displayName: string
   email: string
   submittedAt: string
-  status: 'submitted' | 'graded'
+  status: 'submitted' | 'graded' | 'in_progress'
   totalScore?: number  // 0-100（若已批改）
   choiceScore?: number // 綜合模式專用：選擇題得分
   passed?: boolean     // 是否通過
@@ -43,8 +45,9 @@ export interface PendingExamItem {
 const INITIAL_MOCK_PENDING_EXAMS: PendingExamItem[] = []
 
 export default function AdminGradePage() {
-  // 從 sessionStorage 或預設假資料載入考卷清單
+  const { userDoc } = useAuth()
   const [exams, setExams] = useState<PendingExamItem[]>([])
+  const [loadingPending, setLoadingPending] = useState(true)
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null)
   const [filterMode, setFilterMode] = useState<'all' | 'quiz' | 'essay'>('all')
   
@@ -55,59 +58,44 @@ export default function AdminGradePage() {
   // Toast 或成功訊息通知
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  // 初始化資料：組合 SessionStorage 的考卷與 Mock 清單
-  useEffect(() => {
-    let list: PendingExamItem[] = [...INITIAL_MOCK_PENDING_EXAMS]
-    
-    // 1. 嘗試讀取考生本機剛剛交卷的申論 session
-    const storedEssay = loadEssaySession('essay-exam-demo-001') || loadEssaySession('essay-exam-latest')
-    if (storedEssay) {
-      const existsIndex = list.findIndex(e => e.examId === storedEssay.examId)
-      const newExam: PendingExamItem = {
-        examId: storedEssay.examId,
-        mode: 'essay',
-        uid: 'user-current-session',
-        displayName: storedEssay.displayName || '目前測試考生',
-        email: 'current_test@example.com',
-        submittedAt: storedEssay.submittedAt,
-        status: storedEssay.status,
-        answers: storedEssay.answers
-      }
-      if (existsIndex >= 0) list[existsIndex] = newExam
-      else list.unshift(newExam)
-    }
+  // 從 Firestore 實時載入待批改考卷
+  const fetchPendingExams = async () => {
+    setLoadingPending(true)
+    const cloudList = await getPendingExamsFirestore()
+    const formatted: PendingExamItem[] = cloudList.map((e) => {
+      // 若為綜合模式，僅將問答題 (qa) 放入待批改題目中，選擇題 (choice) 已經由系統完成電腦打分
+      const gradableAnswers = e.mode === 'quiz' 
+        ? e.answers.filter((a) => a.questionDoc?.type === 'qa' || (!a.questionDoc && a.questionId.includes('qa')))
+        : e.answers
 
-    // 2. 嘗試讀取考生本機剛剛交卷的綜合 session (如有問答題)
-    const storedQuiz = loadExamSession('quiz-exam-latest') || loadExamSession('quiz-exam-demo')
-    if (storedQuiz && storedQuiz.totalQa > 0) {
-      const existsIndex = list.findIndex(e => e.examId === storedQuiz.examId)
-      const qaAnswers = storedQuiz.answers.filter(a => a.questionDoc?.type === 'qa')
-      const newExam: PendingExamItem = {
-        examId: storedQuiz.examId,
-        mode: 'quiz',
-        uid: 'user-current-session',
-        displayName: storedQuiz.displayName || '目前測試考生',
-        email: 'current_test@example.com',
-        submittedAt: storedQuiz.submittedAt,
-        status: storedQuiz.status || 'submitted',
-        choiceScore: storedQuiz.choiceScore ?? storedQuiz.score,
-        answers: qaAnswers.map(a => ({
+      return {
+        examId: e.id,
+        mode: e.mode,
+        uid: e.uid,
+        displayName: e.displayName,
+        email: e.userEmail,
+        submittedAt: e.submittedAt?.toLocaleDateString ? e.submittedAt.toLocaleDateString() : '最近提交',
+        status: e.status,
+        choiceScore: e.choiceScore || 0,
+        answers: gradableAnswers.map((a) => ({
           questionId: a.questionId,
           userAnswer: a.userAnswer,
-          timeExpired: a.timeExpired,
-          score: a.score,
-          comment: a.comment,
-          questionDoc: a.questionDoc
-        }))
+          timeExpired: false,
+          score: a.score || 0,
+          comment: a.feedback || '',
+          questionDoc: a.questionDoc,
+        })),
       }
-      if (existsIndex >= 0) list[existsIndex] = newExam
-      else list.unshift(newExam)
+    })
+    setExams(formatted)
+    if (formatted.length > 0) {
+      setSelectedExamId((prev) => prev || formatted[0].examId)
     }
+    setLoadingPending(false)
+  }
 
-    setExams(list)
-    if (list.length > 0) {
-      setSelectedExamId(list[0].examId)
-    }
+  useEffect(() => {
+    fetchPendingExams()
   }, [])
 
   // 篩選考卷
@@ -120,7 +108,7 @@ export default function AdminGradePage() {
     const initialComments: Record<string, string> = {}
 
     currentExam.answers.forEach(ans => {
-      initialScores[ans.questionId] = ans.score !== undefined ? ans.score : (currentExam.mode === 'quiz' ? 10 : 8)
+      initialScores[ans.questionId] = ans.score !== undefined ? ans.score : (currentExam.mode === 'quiz' ? 5 : 8)
       initialComments[ans.questionId] = ans.comment || ''
     })
 
@@ -129,7 +117,7 @@ export default function AdminGradePage() {
   }, [selectedExamId, currentExam])
 
   const handleScoreChange = (qId: string, val: number) => {
-    const maxVal = currentExam?.mode === 'quiz' ? 20 : 10
+    const maxVal = currentExam?.mode === 'quiz' ? 5 : 10
     const clamped = Math.max(0, Math.min(maxVal, val))
     setGradingScores(prev => ({ ...prev, [qId]: clamped }))
   }
@@ -138,86 +126,61 @@ export default function AdminGradePage() {
     setGradingComments(prev => ({ ...prev, [qId]: text }))
   }
 
-  const handleSubmitGrading = () => {
+
+  const handleSubmitGrading = async () => {
     if (!currentExam) return
 
-    let finalScore = 0
-    let isPassed = false
-
-    if (currentExam.mode === 'essay') {
-      const totalAwarded = currentExam.answers.reduce((acc, ans) => acc + (gradingScores[ans.questionId] || 0), 0)
-      const maxPossible = currentExam.answers.length * 10
-      finalScore = maxPossible > 0 ? Math.round((totalAwarded / maxPossible) * 100) : 0
-      isPassed = finalScore >= 90
-      clearEssayLock()
-    } else {
-      // 綜合模式：選擇題得分 + 問答題得分
-      const qaAwarded = currentExam.answers.reduce((acc, ans) => acc + (gradingScores[ans.questionId] || 0), 0)
-      const choiceScore = currentExam.choiceScore ?? 0
-      finalScore = Math.min(100, choiceScore + qaAwarded)
-      isPassed = finalScore >= 90
-
-      // 回寫 SessionStorage
-      const localQuizSession = loadExamSession(currentExam.examId)
-      if (localQuizSession) {
-        saveExamSession({
-          ...localQuizSession,
-          status: 'graded',
-          score: finalScore,
-          qaScore: qaAwarded,
-          passed: isPassed,
-          gradedAt: new Date().toISOString()
-        })
+    let essayScoreSum = 0
+    const updatedAnswers = currentExam.answers.map((ans) => {
+      const awarded = gradingScores[ans.questionId] || 0
+      essayScoreSum += awarded
+      return {
+        questionId: ans.questionId,
+        userAnswer: ans.userAnswer,
+        score: awarded,
+        feedback: gradingComments[ans.questionId] || '',
+        questionDoc: ans.questionDoc,
       }
-    }
-
-    // 更新歷史紀錄 (寫入 historyStore 使排行榜生效)
-    addHistoryRecord({
-      id: currentExam.examId,
-      mode: currentExam.mode,
-      displayName: currentExam.displayName,
-      score: finalScore,
-      maxScore: 100,
-      passed: isPassed,
-      status: 'graded',
-      date: new Date().toLocaleString('zh-TW', { hour12: false }).slice(0, 16)
     })
 
-    const updatedAnswers = currentExam.answers.map(ans => ({
-      ...ans,
-      score: gradingScores[ans.questionId],
-      comment: gradingComments[ans.questionId]
-    }))
-
-    const updatedExam: PendingExamItem = {
-      ...currentExam,
-      status: 'graded',
-      totalScore: finalScore,
-      passed: isPassed,
-      answers: updatedAnswers
-    }
-
-    setExams(prev => prev.map(e => e.examId === currentExam.examId ? updatedExam : e))
-
-    // 自動寫入 / 匯出至 Google Sheets
-    fetch('/api/export-score', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: currentExam.email || 'examinee@example.com',
-        displayName: currentExam.displayName || '客服勇者',
-        date: new Date().toLocaleString('zh-TW', { hour12: false }),
-        mode: currentExam.mode,
-        score: finalScore,
-        maxScore: 100,
-        passed: isPassed,
-        attemptCount: 1,
+    try {
+      const totalScore = await gradeExamFirestore({
+        examId: currentExam.examId,
+        answers: updatedAnswers,
+        essayScore: essayScoreSum,
+        choiceScore: currentExam.choiceScore || 0,
+        gradedBy: userDoc?.displayName || '管理者',
       })
-    }).then(res => res.json())
-      .then(resData => console.log('📊 [Score Sheet Sync]', resData))
-      .catch(err => console.error('📊 [Score Sheet Sync Error]', err))
 
-    showToast(`✅ 批改完成！${currentExam.mode === 'quiz' ? '綜合' : '申論'}考生成績：${finalScore} 分 (${isPassed ? '通過' : '未通過'})。已更新排行榜並同步至 Google Sheets！`)
+      const isPassed = totalScore >= 90
+
+      // 自動寫入 / 匯出至 Google Sheets
+      fetch('/api/export-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: currentExam.email || 'examinee@example.com',
+          displayName: currentExam.displayName || '客服勇者',
+          date: new Date().toLocaleString('zh-TW', { hour12: false }),
+          mode: currentExam.mode,
+          score: totalScore,
+          maxScore: 100,
+          passed: isPassed,
+          attemptCount: 1,
+        }),
+      }).catch((err) => console.error('📊 [Score Sheet Sync Error]', err))
+
+      if (currentExam.mode === 'essay') {
+        clearEssayLock()
+      }
+
+      showToast(`✅ 批改完成！總得分：${totalScore} 分 (${isPassed ? '通過' : '未通過'})。紀錄已更新至雲端與 Google Sheets！`)
+
+      await fetchPendingExams()
+    } catch (e: any) {
+      console.error('Failed to submit grade to Firestore:', e)
+      alert(`⚠️ 批改失敗：${e?.message || '請確認網路連線'}`)
+    }
   }
 
   const showToast = (msg: string) => {
@@ -344,8 +307,8 @@ export default function AdminGradePage() {
                     answer: ''
                   }
 
-                  const maxScorePerQ = currentExam.mode === 'quiz' ? 20 : 10
-                  const score = gradingScores[ans.questionId] ?? (currentExam.mode === 'quiz' ? 10 : 8)
+                  const maxScorePerQ = currentExam.mode === 'quiz' ? 5 : 10
+                  const score = gradingScores[ans.questionId] ?? (currentExam.mode === 'quiz' ? 5 : 8)
                   const comment = gradingComments[ans.questionId] ?? ''
 
                   return (

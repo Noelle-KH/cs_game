@@ -372,7 +372,13 @@ export default function AdminQuestionsPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredQuestions.length === 0 ? (
+            {loadingQuestions ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: '#a0aec0' }}>
+                  ⏳ 正在載入雲端題庫資料...
+                </td>
+              </tr>
+            ) : filteredQuestions.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', padding: 24 }}>
                   查無符合條件的題目

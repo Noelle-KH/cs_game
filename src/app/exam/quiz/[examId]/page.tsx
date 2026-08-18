@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { getFirestoreQuestions } from '@/lib/questionStore'
 import { saveExamSession, ExamSessionAnswer } from '@/lib/examSession'
+import { submitExamFirestore } from '@/lib/examStore'
 import TimerBar from '@/components/TimerBar'
 import ConfirmModal from '@/components/ConfirmModal'
 import styles from './page.module.css'
@@ -44,11 +45,28 @@ export default function ExamPage({
   useEffect(() => {
     async function loadQuizQuestions() {
       const allStored = await getFirestoreQuestions()
-      const validQs = allStored.filter(q => q.enabled && (q.type === 'choice' || q.type === 'qa'))
-      // Fisher-Yates 隨機洗牌
-      const shuffled = [...validQs].sort(() => Math.random() - 0.5)
+      
+      // 1. 去除重複題目（以 Question ID 或 Content 做不重複唯一過濾）
+      const uniqueMap = new Map<string, any>()
+      allStored.forEach((q) => {
+        if (q.enabled && (q.type === 'choice' || q.type === 'qa')) {
+          const key = q.id || q.content.trim()
+          if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, q)
+          }
+        }
+      })
+
+      const uniqueQs = Array.from(uniqueMap.values())
+
+      // 2. 正統 Fisher-Yates 嚴謹不重複隨機洗牌
+      for (let i = uniqueQs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[uniqueQs[i], uniqueQs[j]] = [uniqueQs[j], uniqueQs[i]]
+      }
+
       // 限制最多 20 題
-      setQuestions(shuffled.slice(0, 20))
+      setQuestions(uniqueQs.slice(0, 20))
     }
     loadQuizQuestions()
   }, [])
@@ -110,25 +128,35 @@ export default function ExamPage({
       }
     })
 
-    saveExamSession({
+    submitExamFirestore({
       examId,
-      mode: 'quiz',
-      displayName: displayName || DEV_MOCK_DISPLAY_NAME,
-      status,
-      score: finalScore,
-      choiceScore,
-      maxScore: 100,
-      passed,
-      correctCount,
-      totalChoice: choiceQs.length,
-      totalQa: qaQs.length,
-      expiredCount: finalExpired.size,
-      answeredCount: Object.values(finalAnswers).filter((v) => v.trim().length > 0).length,
       answers: sessionAnswers,
-      submittedAt: new Date().toISOString(),
+      choiceScore,
+      isFullyAutoGraded: qaQs.length === 0,
+    }).then(() => {
+      // 保留相容本地 sessionStorage 供結果頁快速預覽
+      saveExamSession({
+        examId,
+        mode: 'quiz',
+        displayName: displayName || DEV_MOCK_DISPLAY_NAME,
+        status,
+        score: finalScore,
+        choiceScore,
+        maxScore: 100,
+        passed,
+        correctCount,
+        totalChoice: choiceQs.length,
+        totalQa: qaQs.length,
+        expiredCount: finalExpired.size,
+        answeredCount: Object.values(finalAnswers).filter((v) => v.trim().length > 0).length,
+        answers: sessionAnswers,
+        submittedAt: new Date().toISOString(),
+      })
+      router.push(`/exam/quiz/${examId}/result`)
+    }).catch((err) => {
+      console.error('Submit exam to Firestore failed:', err)
+      router.push(`/exam/quiz/${examId}/result`)
     })
-
-    router.push(`/exam/quiz/${examId}/result`)
   }, [phase, examId, displayName, questions, router])
 
   // ── 計時器：只做 setTimeLeft(-1)，不在 setter 內呼叫其他函式 ──

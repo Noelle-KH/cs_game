@@ -10,40 +10,68 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：✅ 假資料全面刪除潔淨、獨立 `/admin/settings` Admin 權限設定頁面完成、Firestore `questions` 題庫分批寫入與 `users` Auth 同步串接完成，準備於明日進行考場 `exams` Collection 雲端作答寫入
-**分支**：`feat/phase1-auth`
+**專案階段**：✅ 綜合考場實時雲端 `exams` 串接完成、錯題回顧與主管閱卷評分連動修復、系統權限後台 Admin/Supervisor 授權層級劃分完成
+**分支**：`main` / `feat/phase1-auth`
 **PRD 版本**：v1.1
-**最後更新**：2026-08-17
+**最後更新**：2026-08-18
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.1）
 - [x] AI 開發規範資料夾（context / architecture / decisions / handoff）
-- [x] Git 版本控制初始化（main 分支）
-- [x] Next.js 16 + TypeScript 專案初始化
-- [x] Firebase Client / Admin SDK 設定
-- [x] TypeScript 型別定義（所有 Firestore collection）
-- [x] AuthContext（Google 登入、userDoc 同步、角色、Admin 清單自動比對、保留 DEV 三角色免登入）
-- [x] 路由守衛 proxy.ts（Next.js 16 規範）
-- [x] globals.css 像素風格 Design Token 系統
-- [x] 登入頁面（`/login`，含 DEV 免登入考生/主管/管理員快捷鍵）
-- [x] 首次設定顯示名稱頁面（`/setup`，支援與 Firestore users 同步）
-- [x] 首頁大廳（`/`，含綜合/申論模式卡片與主管批改/Admin Settings 權限分開展示）
-- [x] 假資料全面清空（歷史紀錄、DEMO 題庫、待批改考卷、大廳範例紀錄全數清空）
-- [x] 開發獨立系統權限與參數管理後台 (`/admin/settings`，支援 Admin Email 名單動態授權與合格分數/限時參數設定)
-- [x] 權限邊界隔離：主管 (Supervisor) 選單與頁面絕不展示或存取 `/admin/settings`（加入嚴格 Role Guard）
-- [x] 題庫與 Firestore `questions` 雲端集合串接（`src/lib/questionStore.ts` 支持雲端讀取、單筆編輯與軟刪除）
-- [x] 題庫後台 Excel 匯入優化 (`/admin/questions`)：新增每 200 筆 chunk 分批 commit 寫入與 UI 即時進度跳動提示 (onProgress)
-- [x] 考場隨機抽題 (`/exam/quiz/[examId]` & `/exam/essay/[examId]`)：改為實時從 Firestore `questions` 抓取 enabled 題庫抽題
-- [x] Google Auth 與 Firestore `users/{uid}` 同步建檔（首次 Google 登入自動比對 Admin 並寫入使用者文件）
+- [x] Next.js 16 + TypeScript 專案初始化與路由配置 (`proxy.ts`)
+- [x] Firebase Client / Admin SDK 設定與 auth 狀態處理
+- [x] 首次 Google 登入自訂姓名頁面 (`/setup`) 與 AuthContext 競態修復
+- [x] 假資料全面刪除潔淨（大廳歷史紀錄、預設題庫全數清空）
+- [x] 題庫後台 Excel 匯入優化 (`/admin/questions`) 與 Firestore `questions` 雲端分批讀寫
+- [x] 綜合模式考試隨機洗牌去重、考卷實時寫入雲端 Firestore `exams` 集合
+- [x] 主管閱卷後台 (`/admin/grade`)：自動隱藏選擇題、問答題配分上限更正為單題 5 分（總分 100 分）
+- [x] 錯題回顧 (`/exam/quiz/[examId]/review`) 與成績結果頁 (`/exam/quiz/[examId]/result`) 雲端資料與主管批改分數實時連動
+- [x] 個人歷次成績頁面 (`/profile/results`)：過濾 `in_progress` 作廢考卷，僅採計真實提交記錄
+- [x] 獨立系統權限與參數管理後台 (`/admin/settings`)：新增 Admin (系統管理員) 與 Supervisor (主管) 雙層級名單授權與破版修復
 
 ### 下次待辦
-- [ ] 考試作答 Sessions 雲端寫入（將 `examSession.ts` 暫存結構改為實時寫入 Firestore `exams` 集合）
-- [ ] 主管批改後台 (`/admin/grade`) 串接 Firestore `exams` 集合（即時讀取 `status === 'submitted'` 待批改考卷）
-- [ ] 排行榜與個人紀錄 (`/leaderboard` & `/profile/results`) 改為從 Firestore 雲端查詢實時榜單
+- [ ] 申論模式 (`/exam/essay/*`) 全面雲端化串接（將 Session 改為寫入 Firestore `exams` 集合）
+- [ ] 批改完成後自動觸發 Google Sheets 成績匯出 (/api/export-score)
+- [ ] 驗證客服新人「每月申論任務限制」與鎖定考場邏輯
 
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-08-18 | 綜合考場與主管批改雲端化、錯題回顧與 Admin/Supervisor 雙層授權重構
+
+**負責人**：AI  
+**開發時長**：約 3.5 小時
+
+#### ✅ 今日完成
+1. **Google 帳號登入與自訂姓名流程優化**：
+   - 強制新註冊 Google 帳號預設 displayName 留空，確保停留在 `/setup` 讓使用者手動輸入真實姓名。
+   - 修正 AuthContext 中的 `userDocLoaded` State 鎖定，解決登入跳轉時的競態條錯。
+2. **綜合模式隨機去重與 Fisher-Yates 抽題**：
+   - 採用 `Map<string, QuestionDoc>` 防重機制與正統 Fisher-Yates 隨機洗牌，保證綜合大廳抽出的 20 題皆無重複。
+3. **雲端考場 `exams` Collection 全面串接**：
+   - 建立 `src/lib/examStore.ts` 服務，支援 `createExamFirestore`、`submitExamFirestore`、`gradeExamFirestore` 與 `getUserExamsFirestore`。
+   - 修正過濾 `undefined` 屬性（如問答題未批改時的 `isCorrect`），解決 Cloud Firestore `updateDoc` 被阻擋的 Error。
+4. **主管閱卷後台優化 (`/admin/grade`)**：
+   - 自動隱藏電腦已評分的選擇題，僅展示問答題供主管打分。
+   - 將綜合模式問答題配分上限與初始預設值更正為單題 5 分 (選擇題 45 分 + 問答題 55 分 = 100 分)。
+5. **錯題回顧與成績結果頁實時同步**：
+   - 升級 `/exam/quiz/[examId]/result` 與 `/exam/quiz/[examId]/review` 改為實時拉取雲端考卷狀態，主管批改完成後返回成績頁自動解鎖最新總分與通過橫幅。
+   - 歷次成績 (`/profile/results`) 自動過濾中途離開作廢的 `in_progress` 考卷。
+6. **系統權限後台權限層級劃分 (`/admin/settings`)**：
+   - 新增 Admin (系統管理員) 與 Supervisor (主管) 名單授權清單。
+   - 主管視角自動隱藏 `⚙️ 系統權限與參數管理` 按鈕，並修正提示彈窗 (`.toast`) 的最高 z-index 與圖層遮擋。
+
+#### ⚠️ 遭遇問題
+- **Firestore updateDoc Unsupported undefined value**：問答題預設 `isCorrect: undefined` 導致寫入拋錯，透過建立 `sanitizedAnswers` 過濾器清除 undefined 欄位解決。
+- **Result 頁面舊 Local Storage 快取問題**：交卷後導回結果頁因未拉取雲端更新導致卡在「待審核中」，改為即時呼叫 `getExamByIdFirestore` 解決。
+
+#### ⏭️ 下次開始
+1. 申論模式 (`/exam/essay/*`) 全面雲端化串接 (Firestore `exams` 集合)
+2. 成績自動匯出至 Google Sheets (/api/export-score)
+3. 客服新人每月申論任務頻率限制實測
 
 ---
 

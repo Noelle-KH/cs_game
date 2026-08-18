@@ -1,32 +1,48 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import styles from './page.module.css'
 
 export default function LoginPage() {
-  const { user, userDoc, loading, signInWithGoogle, devBypassLogin } = useAuth()
+  const { user, userDoc, userDocLoaded, loading, signInWithGoogle, devBypassLogin } = useAuth()
   const router = useRouter()
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
 
   useEffect(() => {
-    if (!loading && user) {
-      // 已登入且有顯示名稱 → 進首頁
+    // 當已經載入完成，且使用者已登入：
+    if (!loading && userDocLoaded && user) {
       if (userDoc?.displayName) {
+        // 已有顯示名稱 → 直接前往首頁
         router.replace('/')
       } else {
-        // 已登入但無顯示名稱 → 設定頁
+        // 沒有顯示名稱（新使用者）→ 前往設定頁
         router.replace('/setup')
       }
     }
-  }, [loading, user, userDoc, router])
+  }, [loading, userDocLoaded, user, userDoc, router])
 
-  if (loading) {
+  if (loading || isLoggingIn || (user && !userDocLoaded)) {
     return (
       <div className={styles.loadingScreen}>
-        <p className="pixel-title">載入中...</p>
+        <p className="pixel-title">載入帳號資料中...</p>
       </div>
     )
+  }
+
+  async function handleGoogleLogin() {
+    setIsLoggingIn(true)
+    const doc = await signInWithGoogle()
+    if (doc) {
+      if (doc.displayName) {
+        router.replace('/')
+      } else {
+        router.replace('/setup')
+      }
+    } else {
+      setIsLoggingIn(false)
+    }
   }
 
   return (
@@ -67,7 +83,7 @@ export default function LoginPage() {
         <button
           id="btn-google-login"
           className={`btn-pixel btn-primary ${styles.googleBtn}`}
-          onClick={signInWithGoogle}
+          onClick={handleGoogleLogin}
         >
           <GoogleIcon />
           以 Google 帳號登入

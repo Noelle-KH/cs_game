@@ -8,7 +8,7 @@ export interface ExamHistoryItem {
   score: number          // 得分 (0-100)
   maxScore: number       // 100
   passed: boolean        // score >= 90
-  status: 'submitted' | 'graded'
+  status: 'submitted' | 'graded' | 'in_progress'
   date: string           // YYYY-MM-DD HH:mm
   details?: ExamSession | EssayExamSession
 }

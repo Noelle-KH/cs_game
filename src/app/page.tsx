@@ -7,7 +7,7 @@ import styles from './page.module.css'
 import { getEssayLock } from '@/lib/examSession'
 
 export default function HomePage() {
-  const { user, userDoc, loading, logout } = useAuth()
+  const { user, userDoc, userDocLoaded, loading, logout } = useAuth()
   const router = useRouter()
 
   // 模擬角色切換（方便開發測試視角）
@@ -16,11 +16,11 @@ export default function HomePage() {
 
   // 檢查是否登入與是否填寫顯示名稱
   useEffect(() => {
-    if (!loading) {
+    if (!loading && userDocLoaded) {
       if (!user) router.replace('/login')
       else if (!userDoc?.displayName) router.replace('/setup')
     }
-  }, [loading, user, userDoc, router])
+  }, [loading, userDocLoaded, user, userDoc, router])
 
   // 檢查申論題未完成狀態
   useEffect(() => {
@@ -62,7 +62,13 @@ export default function HomePage() {
 
         <div className={styles.navRight}>
           <span className={styles.playerName}>
-            👤 {displayName} ({currentRole === 'supervisor' ? '主管權限' : '客服新人'})
+            👤 {displayName} ({
+              userDoc.role === 'admin' 
+                ? '系統管理員' 
+                : currentRole === 'supervisor' 
+                ? '主管權限' 
+                : '客服新人'
+            })
           </span>
           <button
             id="btn-logout"
@@ -180,7 +186,7 @@ export default function HomePage() {
               🏆 冒險排行榜
             </button>
 
-            {/* 僅考生顯示：我的歷次成績與錯題 */}
+            {/* 僅考生視角顯示：我的歷次成績與錯題 */}
             {currentRole === 'examinee' && (
               <button
                 id="btn-my-results"
@@ -191,7 +197,7 @@ export default function HomePage() {
               </button>
             )}
 
-            {/* 主管專屬：批改、團隊進度追蹤與題庫管理 */}
+            {/* 主管視角專屬：批改、團隊進度追蹤與題庫管理 */}
             {(currentRole === 'supervisor' || userDoc.role === 'admin') && (
               <>
                 <button
@@ -218,8 +224,8 @@ export default function HomePage() {
               </>
             )}
 
-            {/* 系統管理員 (Admin) 專屬：權限與參數設定（僅 userDoc.role === 'admin' 渲染） */}
-            {userDoc.role === 'admin' && (
+            {/* 系統管理員 (Admin) 專屬：權限與參數設定（主管視角不可見，僅系統管理員獨占） */}
+            {userDoc.role === 'admin' && currentRole !== 'supervisor' && (
               <button
                 id="btn-admin-settings"
                 className={`btn-pixel ${styles.adminBtn}`}

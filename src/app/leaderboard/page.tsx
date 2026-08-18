@@ -5,14 +5,51 @@ import Link from 'next/link'
 import styles from './leaderboard.module.css'
 import { getQuizLeaderboard, getEssayLeaderboard, ExamHistoryItem } from '@/lib/historyStore'
 
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { db } from '@/lib/firebase/client'
+
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<'quiz' | 'essay'>('quiz')
   const [quizList, setQuizList] = useState<ExamHistoryItem[]>([])
   const [essayList, setEssayList] = useState<ExamHistoryItem[]>([])
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(true)
 
   useEffect(() => {
-    setQuizList(getQuizLeaderboard())
-    setEssayList(getEssayLeaderboard())
+    async function fetchCloudLeaderboard() {
+      setLoadingLeaderboard(true)
+      try {
+        const q = query(collection(db, 'exams'), where('status', '==', 'graded'))
+        const snap = await getDocs(q)
+        const allExams: any[] = []
+        snap.forEach((docSnap) => {
+          const d = docSnap.data()
+          allExams.push({
+            id: d.id,
+            displayName: d.displayName || '客服勇者',
+            mode: d.mode,
+            score: d.score || 0,
+            date: d.submittedAt?.toDate ? d.submittedAt.toDate().toLocaleDateString() : '最近測驗',
+            passed: d.passed || false,
+          })
+        })
+
+        // 按最高分排序去重或直接取分高者
+        const quizSorted = allExams
+          .filter((e) => e.mode === 'quiz')
+          .sort((a, b) => b.score - a.score)
+        const essaySorted = allExams
+          .filter((e) => e.mode === 'essay')
+          .sort((a, b) => b.score - a.score)
+
+        setQuizList(quizSorted)
+        setEssayList(essaySorted)
+      } catch (e) {
+        console.error('Failed to fetch leaderboard from Firestore:', e)
+      } finally {
+        setLoadingLeaderboard(false)
+      }
+    }
+    fetchCloudLeaderboard()
   }, [])
 
   const currentList = activeTab === 'quiz' ? quizList : essayList

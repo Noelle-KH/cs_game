@@ -15,7 +15,7 @@ export interface ExamSession {
   examId: string
   mode: 'quiz' | 'essay'
   displayName: string
-  status: 'submitted' | 'graded' // 綜合模式含問答題時為 submitted（待批改），批改完為 graded
+  status: 'submitted' | 'graded' | 'in_progress' // 綜合模式含問答題時為 submitted（待批改），批改完為 graded
   score: number         // 總得分（未批改前為選擇題部分得分）
   choiceScore: number   // 選擇題得分
   qaScore?: number      // 問答題得分（主管批改後更新）

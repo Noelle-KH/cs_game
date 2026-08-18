@@ -10,9 +10,11 @@ export default function AdminSettingsPage() {
   const { userDoc, role, loading } = useAuth()
   const router = useRouter()
 
-  // Admin 名單 state
+  // Admin 名單與 Supervisor 名單 state
   const [adminEmails, setAdminEmails] = useState<string[]>([])
+  const [supervisorEmails, setSupervisorEmails] = useState<string[]>([])
   const [newEmailInput, setNewEmailInput] = useState('')
+  const [newSupervisorEmailInput, setNewSupervisorEmailInput] = useState('')
   
   // 系統參數 state
   const [passThreshold, setPassThreshold] = useState(90)
@@ -25,26 +27,24 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     // 權限檢查：若非 admin 則無權造訪此頁面
-    if (!loading && role && role !== 'admin' && process.env.NODE_ENV !== 'development') {
+    if (!loading && role && role !== 'admin') {
       router.replace('/')
     }
 
-    // 載入預設的 Admin Emails (可從 env 或 localStorage 讀取)
-    const envEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'admin@example.com,manager@example.com')
+    // 載入預設的 Admin / Supervisor Emails
+    const envAdmin = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'admin@example.com')
+      .split(',')
+      .map(e => e.trim())
+    const envSupervisor = (process.env.NEXT_PUBLIC_SUPERVISOR_EMAILS || 'supervisor@example.com,manager@example.com')
       .split(',')
       .map(e => e.trim())
     
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('cs_admin_emails')
-      if (stored) {
-        try {
-          setAdminEmails(JSON.parse(stored))
-        } catch {
-          setAdminEmails(envEmails)
-        }
-      } else {
-        setAdminEmails(envEmails)
-      }
+      const storedAdmin = localStorage.getItem('cs_admin_emails')
+      const storedSupervisor = localStorage.getItem('cs_supervisor_emails')
+      
+      setAdminEmails(storedAdmin ? JSON.parse(storedAdmin) : envAdmin)
+      setSupervisorEmails(storedSupervisor ? JSON.parse(storedSupervisor) : envSupervisor)
     }
   }, [loading, role, router])
 
@@ -56,7 +56,7 @@ export default function AdminSettingsPage() {
       return
     }
     if (adminEmails.includes(trimmed)) {
-      showToast('⚠️ 該 Email 已存在於管理員清單中！')
+      showToast('⚠️ 該 Email 已存在於系統管理員清單中！')
       return
     }
 
@@ -66,7 +66,7 @@ export default function AdminSettingsPage() {
       localStorage.setItem('cs_admin_emails', JSON.stringify(updated))
     }
     setNewEmailInput('')
-    showToast(`✅ 已新增管理員：${trimmed}`)
+    showToast(`✅ 已新增系統管理員：${trimmed}`)
   }
 
   const handleRemoveEmail = (emailToRemove: string) => {
@@ -75,7 +75,37 @@ export default function AdminSettingsPage() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('cs_admin_emails', JSON.stringify(updated))
     }
-    showToast(`🗑️ 已移除管理員：${emailToRemove}`)
+    showToast(`🗑️ 已移除系統管理員：${emailToRemove}`)
+  }
+
+  const handleAddSupervisorEmail = () => {
+    const trimmed = newSupervisorEmailInput.trim().toLowerCase()
+    if (!trimmed) return
+    if (!trimmed.includes('@')) {
+      showToast('⚠️ 請輸入有效的 Email 格式！')
+      return
+    }
+    if (supervisorEmails.includes(trimmed)) {
+      showToast('⚠️ 該 Email 已存在於主管授權清單中！')
+      return
+    }
+
+    const updated = [...supervisorEmails, trimmed]
+    setSupervisorEmails(updated)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cs_supervisor_emails', JSON.stringify(updated))
+    }
+    setNewSupervisorEmailInput('')
+    showToast(`✅ 已新增主管授權：${trimmed}`)
+  }
+
+  const handleRemoveSupervisorEmail = (emailToRemove: string) => {
+    const updated = supervisorEmails.filter(e => e !== emailToRemove)
+    setSupervisorEmails(updated)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cs_supervisor_emails', JSON.stringify(updated))
+    }
+    showToast(`🗑️ 已移除主管授權：${emailToRemove}`)
   }
 
   const handleSaveSettings = () => {
@@ -114,32 +144,32 @@ export default function AdminSettingsPage() {
       <div className={styles.mainLayout}>
         {/* 1. 管理員 Email 名單與權限設定 */}
         <section className={`pixel-panel ${styles.panel}`}>
-          <h2 className={styles.panelTitle}>👑 管理員 (Admin / Supervisor) 名單授權</h2>
+          <h2 className={styles.panelTitle}>👑 系統管理員 (Admin) 名單授權</h2>
           <p className={styles.panelSub}>
-            在此維護具備存取 `/admin/*` 所有批改與管理權限的 Email 清單。
+            具備最高權限：包含 `/admin/settings` 系統參數設定與主管批改權限。
           </p>
 
           <div className={styles.addInputGroup}>
             <input
               type="email"
-              placeholder="請輸入欲授權的管理員 Email..."
+              placeholder="請輸入欲授權的 Admin Email..."
               value={newEmailInput}
               onChange={(e) => setNewEmailInput(e.target.value)}
               className={styles.emailInput}
               onKeyDown={(e) => e.key === 'Enter' && handleAddEmail()}
             />
             <button className="btn-pixel btn-primary" onClick={handleAddEmail}>
-              ➕ 新增管理員
+              ➕ 新增 Admin
             </button>
           </div>
 
           <div className={styles.emailList}>
             {adminEmails.length === 0 ? (
-              <p className={styles.emptyText}>目前尚無額外設定的管理員 Email</p>
+              <p className={styles.emptyText}>目前尚無額外設定的 Admin Email</p>
             ) : (
               adminEmails.map((email) => (
                 <div key={email} className={styles.emailItem}>
-                  <span className={styles.emailText}>📧 {email}</span>
+                  <span className={styles.emailText}>⚙️ {email}</span>
                   <button
                     className={styles.removeBtn}
                     onClick={() => handleRemoveEmail(email)}
@@ -150,6 +180,46 @@ export default function AdminSettingsPage() {
                 </div>
               ))
             )}
+          </div>
+
+          <div style={{ marginTop: 24, borderTop: '1px dashed #4a6fa5', paddingTop: 16 }}>
+            <h2 className={styles.panelTitle} style={{ fontSize: '1.1rem' }}>👔 主管 (Supervisor) 名單授權</h2>
+            <p className={styles.panelSub}>
+              具備審核批改、團隊總覽與題庫維護權限（無 `/admin/settings` 設定權限）。
+            </p>
+
+            <div className={styles.addInputGroup}>
+              <input
+                type="email"
+                placeholder="請輸入欲授權的主管 Email..."
+                value={newSupervisorEmailInput}
+                onChange={(e) => setNewSupervisorEmailInput(e.target.value)}
+                className={styles.emailInput}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddSupervisorEmail()}
+              />
+              <button className="btn-pixel btn-secondary" onClick={handleAddSupervisorEmail}>
+                ➕ 新增主管
+              </button>
+            </div>
+
+            <div className={styles.emailList}>
+              {supervisorEmails.length === 0 ? (
+                <p className={styles.emptyText}>目前尚無額外設定的主管 Email</p>
+              ) : (
+                supervisorEmails.map((email) => (
+                  <div key={email} className={styles.emailItem}>
+                    <span className={styles.emailText}>👔 {email}</span>
+                    <button
+                      className={styles.removeBtn}
+                      onClick={() => handleRemoveSupervisorEmail(email)}
+                      title="移除權限"
+                    >
+                      🗑️ 移除
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </section>
 
