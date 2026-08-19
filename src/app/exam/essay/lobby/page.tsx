@@ -8,16 +8,6 @@ import { getEssayLock, clearEssayLock } from '@/lib/examSession'
 import { getUserExamsFirestore, createExamFirestore, CloudExamDoc } from '@/lib/examStore'
 import styles from './page.module.css'
 
-// ⚠️ 開發模式 Mock 使用者
-const DEV_MOCK_USERDOC: UserDoc = {
-  uid: 'dev-uid-001',
-  email: 'dev@example.com',
-  displayName: '開發測試員',
-  role: 'examinee',
-  createdAt: new Date('2026-01-01'),
-  lastLoginAt: new Date(),
-}
-
 const ESSAY_RULES = [
   { icon: '📝', label: '題型', value: '申論題，共 10 題' },
   { icon: '⏱️', label: '計時', value: '每題 10 分鐘倒數，超時自動換題' },
@@ -34,55 +24,67 @@ export default function EssayLobbyPage() {
   const [existingLock, setExistingLock] = useState<ReturnType<typeof getEssayLock>>(null)
   const [essayHistory, setEssayHistory] = useState<CloudExamDoc[]>([])
   const [hasSubmittedThisMonth, setHasSubmittedThisMonth] = useState(false)
-
-  const isDev = process.env.NODE_ENV === 'development'
-  const effectiveUserDoc = userDoc ?? (isDev && !loading ? DEV_MOCK_USERDOC : null)
+  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false)
 
   const now = new Date()
   const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
+  // 未登入自動重導回 /login
+  useEffect(() => {
+    if (!loading && !userDoc) {
+      router.replace('/login')
+    }
+  }, [loading, userDoc, router])
 
   useEffect(() => {
     setExistingLock(getEssayLock())
   }, [])
 
   useEffect(() => {
-    if (!effectiveUserDoc?.uid) return
-    const currentUid = effectiveUserDoc.uid
+    if (!userDoc?.uid) {
+      if (!loading) setIsHistoryLoaded(true)
+      return
+    }
+    const currentUid = userDoc.uid
     async function loadCloudHistory() {
-      const allExams = await getUserExamsFirestore(currentUid)
-      const essayExams = allExams.filter((e) => e.mode === 'essay')
-      setEssayHistory(essayExams)
+      try {
+        const allExams = await getUserExamsFirestore(currentUid)
+        const essayExams = allExams.filter((e) => e.mode === 'essay')
+        setEssayHistory(essayExams)
 
-      // 檢查本月是否有提交紀錄 (submitted 或 graded)
-      const submittedThisMonth = essayExams.some((e) => {
-        if (!e.submittedAt) return false
-        const d = new Date(e.submittedAt)
-        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-        return ym === currentYearMonth
-      })
-      setHasSubmittedThisMonth(submittedThisMonth)
+        // 檢查本月是否有提交紀錄 (submitted 或 graded)
+        const submittedThisMonth = essayExams.some((e) => {
+          if (!e.submittedAt) return false
+          const d = new Date(e.submittedAt)
+          const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+          return ym === currentYearMonth
+        })
+        setHasSubmittedThisMonth(submittedThisMonth)
 
-      // 檢查是否包含狀態為 submitted 待審核中的考卷
-      const pendingExam = essayExams.find((e) => e.status === 'submitted')
-      if (pendingExam) {
-        // 雲端仍有待批改考卷 -> 保持/補上鎖定
-        const lockObj = {
-          examId: pendingExam.id,
-          startedAt: pendingExam.startedAt?.toISOString
-            ? pendingExam.startedAt.toISOString()
-            : new Date().toISOString(),
+        // 檢查是否包含狀態為 submitted 待審核中的考卷
+        const pendingExam = essayExams.find((e) => e.status === 'submitted')
+        if (pendingExam) {
+          // 雲端仍有待批改考卷 -> 保持/補上鎖定
+          const lockObj = {
+            examId: pendingExam.id,
+            startedAt: pendingExam.startedAt?.toISOString
+              ? pendingExam.startedAt.toISOString()
+              : new Date().toISOString(),
+          }
+          setExistingLock(lockObj)
+        } else {
+          // 雲端無待批改考卷（已完成批改或無考卷） -> 自動釋放本地 Lock 鎖定
+          clearEssayLock()
+          setExistingLock(null)
         }
-        setExistingLock(lockObj)
-      } else {
-        // 雲端無待批改考卷（已完成批改或無考卷） -> 自動釋放本地 Lock 鎖定
-        clearEssayLock()
-        setExistingLock(null)
+      } finally {
+        setIsHistoryLoaded(true)
       }
     }
     loadCloudHistory()
-  }, [effectiveUserDoc, currentYearMonth, existingLock])
+  }, [userDoc, currentYearMonth, loading])
 
-  if (loading || !effectiveUserDoc) {
+  if (loading || !userDoc || !isHistoryLoaded) {
     return (
       <div className={styles.loading}>
         <p className="pixel-title">載入中...</p>
@@ -91,12 +93,12 @@ export default function EssayLobbyPage() {
   }
 
   const handleLogout = async () => {
-    if (user) await logout()
-    else router.push('/login')
+    await logout()
+    router.replace('/login')
   }
 
   async function handleStart() {
-    if (existingLock || hasSubmittedThisMonth || !effectiveUserDoc) {
+    if (existingLock || hasSubmittedThisMonth || !userDoc) {
       if (hasSubmittedThisMonth) alert('⚠️ 您本月份已完成申論模式考核，每月限提交一次！')
       return
     }
@@ -106,9 +108,9 @@ export default function EssayLobbyPage() {
       const newExamId = `essay-${Date.now()}`
       await createExamFirestore({
         id: newExamId,
-        uid: effectiveUserDoc.uid,
-        userEmail: effectiveUserDoc.email,
-        displayName: effectiveUserDoc.displayName,
+        uid: userDoc.uid,
+        userEmail: userDoc.email,
+        displayName: userDoc.displayName,
         mode: 'essay',
         answers: [],
       })
@@ -140,7 +142,7 @@ export default function EssayLobbyPage() {
         </button>
         <span className={`pixel-title ${styles.navTitle}`}>📝 申論模式</span>
         <div className={styles.navRight}>
-          <span className={styles.playerName}>👤 {effectiveUserDoc.displayName}</span>
+          <span className={styles.playerName}>👤 {userDoc.displayName}</span>
           <button
             id="btn-logout"
             className={`btn-pixel btn-ghost ${styles.logoutBtn}`}
@@ -183,7 +185,7 @@ export default function EssayLobbyPage() {
                 等待主管批改完成後，即可開始新的申論考試。
               </p>
             </div>
-            {isDev && (
+            {process.env.NODE_ENV === 'development' && (
               <button
                 className={`btn-pixel btn-ghost ${styles.devClearBtn}`}
                 onClick={handleDevClearLock}

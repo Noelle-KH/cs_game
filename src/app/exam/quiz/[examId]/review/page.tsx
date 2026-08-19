@@ -132,13 +132,22 @@ export default function ReviewPage({
     <main className={`pixel-bg ${styles.main}`}>
       {/* 頂部 Navbar */}
       <nav className={styles.navbar}>
-        <button
-          id="btn-back-result"
-          className={`btn-pixel btn-ghost ${styles.backBtn}`}
-          onClick={() => router.push(`/exam/quiz/${examId}/result`)}
-        >
-          ← 返回成績
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            id="btn-back-result"
+            className={`btn-pixel btn-ghost ${styles.backBtn}`}
+            onClick={() => router.push(`/exam/quiz/${examId}/result`)}
+          >
+            ← 返回成績
+          </button>
+          <button
+            id="btn-back-home"
+            className={`btn-pixel btn-ghost ${styles.backBtn}`}
+            onClick={() => router.push('/')}
+          >
+            🏠 回首頁
+          </button>
+        </div>
         <span className={`pixel-title ${styles.navTitle}`}>🔍 錯題回顧</span>
         <div className={styles.filterGroup}>
           {(['all', 'wrong', 'expired'] as ReviewFilter[]).map((f) => (

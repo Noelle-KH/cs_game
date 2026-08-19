@@ -3,7 +3,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { onAuthStateChanged, User, signInWithPopup, signOut } from 'firebase/auth'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, googleProvider } from '@/lib/firebase/client'
 import { UserDoc, UserRole } from '@/types'
 
@@ -14,7 +14,6 @@ interface AuthContextType {
   role: UserRole | null
   loading: boolean
   signInWithGoogle: () => Promise<UserDoc | null>
-  devBypassLogin: (asRole?: UserRole) => void
   logout: () => Promise<void>
   refreshUserDoc: () => Promise<void>
 }
@@ -33,8 +32,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const snap = await getDoc(ref)
       if (snap.exists()) {
         const data = snap.data()
+        const userEmail = email || data.email
+
+        // 依據最新的授權清單即時判定最新角色
+        const isAdmin = checkIsAdmin(userEmail)
+        const isSupervisor = checkIsSupervisor(userEmail)
+        const currentCalculatedRole: UserRole = isAdmin ? 'admin' : (isSupervisor ? 'supervisor' : 'examinee')
+
+        // 若資料庫中的角色與計算角色不符合（代表授權名單已被新增/移除），寫回雲端更新
+        if (data.role !== currentCalculatedRole) {
+          await updateDoc(ref, { role: currentCalculatedRole })
+          data.role = currentCalculatedRole
+        }
+
         setUserDoc({
           ...data,
+          role: currentCalculatedRole,
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
           lastLoginAt: data.lastLoginAt?.toDate ? data.lastLoginAt.toDate() : new Date(),
         } as UserDoc)
@@ -170,29 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await fetchUserDoc(user.uid, user.email)
   }
 
-  function devBypassLogin(asRole: UserRole = 'examinee') {
-    // 建立指定角色的 mock 用戶，保留快速測試功能
-    const mockUser = {
-      uid: asRole === 'admin' ? 'dev-admin-uid-001' : 'dev-mock-uid-001',
-      email: asRole === 'admin' ? 'admin_hero@example.com' : 'dev_hero@example.com',
-      displayName: asRole === 'admin' ? '主管測試勇者' : '客服測試勇者',
-    } as unknown as User
-    
-    const mockDoc: UserDoc = {
-      uid: mockUser.uid,
-      email: mockUser.email!,
-      displayName: mockUser.displayName!,
-      role: asRole,
-      createdAt: new Date(),
-      lastLoginAt: new Date(),
-    }
-
-    setUser(mockUser)
-    setUserDoc(mockDoc)
-    setUserDocLoaded(true)
-    setLoading(false)
-  }
-
   return (
     <AuthContext.Provider value={{
       user,
@@ -201,7 +191,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: userDoc?.role ?? null,
       loading,
       signInWithGoogle,
-      devBypassLogin,
       logout,
       refreshUserDoc,
     }}>

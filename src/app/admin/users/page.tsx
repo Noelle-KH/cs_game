@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import styles from './users.module.css'
-import { getStoredHistory, ExamHistoryItem } from '@/lib/historyStore'
+import { getAllExamsFirestore, CloudExamDoc } from '@/lib/examStore'
 
 interface ExamineeOverview {
   name: string
+  email: string
   totalQuizExams: number
   totalEssayExams: number
   thisMonthEssayStatus: 'completed' | 'pending' | 'none'
@@ -16,57 +17,79 @@ interface ExamineeOverview {
 
 export default function AdminUsersOverviewPage() {
   const [examineeList, setExamineeList] = useState<ExamineeOverview[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const history = getStoredHistory()
-    
-    // 依據歷史數據統計模擬考生狀況
-    const examineeMap = new Map<string, ExamineeOverview>()
+    async function loadTeamData() {
+      setLoading(true)
+      const now = new Date()
+      const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-    // 預設模擬考生清單
-    const defaultUsers = ['客服新人 查理', '客服大師 艾倫', '資深客服 貝蒂', '新人客服 戴安娜', '客服測試員']
-    defaultUsers.forEach(name => {
-      examineeMap.set(name, {
-        name,
-        totalQuizExams: 0,
-        totalEssayExams: 0,
-        thisMonthEssayStatus: 'none',
-        highestScore: 0,
-        lastActiveDate: '2026-08-01',
-      })
-    })
+      const allExams = await getAllExamsFirestore()
+      const examineeMap = new Map<string, ExamineeOverview>()
 
-    history.forEach(item => {
-      const name = item.displayName || '未知考生'
-      const existing = examineeMap.get(name) || {
-        name,
-        totalQuizExams: 0,
-        totalEssayExams: 0,
-        thisMonthEssayStatus: 'none',
-        highestScore: 0,
-        lastActiveDate: item.date,
-      }
+      allExams.forEach((item: CloudExamDoc) => {
+        const key = item.uid || item.userEmail || item.displayName
+        const name = item.displayName || '客服新人'
+        const email = item.userEmail || ''
+        
+        const dateStr = item.submittedAt
+          ? new Date(item.submittedAt).toLocaleDateString('zh-TW')
+          : item.startedAt
+          ? new Date(item.startedAt).toLocaleDateString('zh-TW')
+          : '未知'
 
-      if (item.mode === 'quiz') {
-        existing.totalQuizExams += 1
-      } else if (item.mode === 'essay') {
-        existing.totalEssayExams += 1
-        if (item.status === 'graded') {
-          existing.thisMonthEssayStatus = 'completed'
-        } else if (item.status === 'submitted') {
-          if (existing.thisMonthEssayStatus !== 'completed') {
-            existing.thisMonthEssayStatus = 'pending'
+        const existing = examineeMap.get(key) || {
+          name,
+          email,
+          totalQuizExams: 0,
+          totalEssayExams: 0,
+          thisMonthEssayStatus: 'none',
+          highestScore: 0,
+          lastActiveDate: dateStr,
+        }
+
+        if (item.mode === 'quiz') {
+          existing.totalQuizExams += 1
+        } else if (item.mode === 'essay') {
+          existing.totalEssayExams += 1
+          
+          // 檢查是否屬當月
+          const examDate = item.submittedAt ? new Date(item.submittedAt) : new Date(item.startedAt)
+          const examYM = `${examDate.getFullYear()}-${String(examDate.getMonth() + 1).padStart(2, '0')}`
+          
+          if (examYM === currentYM) {
+            if (item.status === 'graded') {
+              existing.thisMonthEssayStatus = 'completed'
+            } else if (item.status === 'submitted') {
+              if (existing.thisMonthEssayStatus !== 'completed') {
+                existing.thisMonthEssayStatus = 'pending'
+              }
+            }
           }
         }
-      }
 
-      existing.highestScore = Math.max(existing.highestScore, item.score)
-      existing.lastActiveDate = item.date
-      examineeMap.set(name, existing)
-    })
+        existing.highestScore = Math.max(existing.highestScore, item.score || 0)
+        existing.lastActiveDate = dateStr
+        examineeMap.set(key, existing)
+      })
 
-    setExamineeList(Array.from(examineeMap.values()))
+      setExamineeList(Array.from(examineeMap.values()))
+      setLoading(false)
+    }
+
+    loadTeamData()
   }, [])
+
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <div style={{ padding: '60px 0', textAlign: 'center' }}>
+          <p className="pixel-title">載入團隊考核數據中...</p>
+        </div>
+      </div>
+    )
+  }
 
   // 彙整統計
   const totalExaminees = examineeList.length
@@ -136,7 +159,7 @@ export default function AdminUsersOverviewPage() {
             {examineeList.map((u, idx) => (
               <tr key={idx}>
                 <td style={{ fontWeight: 'bold', color: '#f8fafc' }}>
-                  👤 {u.name}
+                  👤 {u.name} {u.email && <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'normal' }}>({u.email})</span>}
                 </td>
                 <td style={{ textAlign: 'center', color: '#38bdf8', fontWeight: 'bold' }}>
                   {u.totalQuizExams} 次

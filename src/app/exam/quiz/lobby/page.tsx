@@ -6,16 +6,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { UserDoc } from '@/types'
 import styles from './page.module.css'
 
-// ⚠️ 開發模式 Mock 使用者（未登入時自動套用）
-const DEV_MOCK_USERDO: UserDoc = {
-  uid: 'dev-uid-001',
-  email: 'dev@example.com',
-  displayName: '開發測試員',
-  role: 'examinee',
-  createdAt: new Date('2026-01-01'),
-  lastLoginAt: new Date(),
-}
-
 import { createExamFirestore, getUserExamsFirestore } from '@/lib/examStore'
 
 const QUIZ_RULES = [
@@ -33,11 +23,14 @@ export default function QuizLobbyPage() {
   const router = useRouter()
   const [isStarting, setIsStarting] = useState(false)
 
-  // 開發模式：無真實使用者時自動套用 Mock 資料
-  const isDev = process.env.NODE_ENV === 'development'
-  const effectiveUserDoc = userDoc ?? (isDev && !loading ? DEV_MOCK_USERDO : null)
+  // 登入狀態檢查：未登入時重導回 /login
+  useEffect(() => {
+    if (!loading && !userDoc) {
+      router.replace('/login')
+    }
+  }, [loading, userDoc, router])
 
-  if (loading || !effectiveUserDoc) {
+  if (loading || !userDoc) {
     return (
       <div className={styles.loading}>
         <p className="pixel-title">載入中...</p>
@@ -46,8 +39,8 @@ export default function QuizLobbyPage() {
   }
 
   const handleLogout = async () => {
-    if (user) await logout()
-    else router.push('/login')
+    await logout()
+    router.replace('/login')
   }
 
   // 載入該使用者的雲端歷史成績
@@ -106,7 +99,7 @@ export default function QuizLobbyPage() {
         </button>
         <span className={`pixel-title ${styles.navTitle}`}>⚔️ 綜合模式</span>
         <div className={styles.navRight}>
-          <span className={styles.playerName}>👤 {effectiveUserDoc.displayName}</span>
+          <span className={styles.playerName}>👤 {userDoc.displayName}</span>
           <button
             id="btn-logout"
             className={`btn-pixel btn-ghost ${styles.logoutBtn}`}

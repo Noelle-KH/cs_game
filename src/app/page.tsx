@@ -11,10 +11,9 @@ export default function HomePage() {
   const { user, userDoc, userDocLoaded, loading, logout } = useAuth()
   const router = useRouter()
 
-  // 模擬角色切換（方便開發測試視角）
-  const [currentRole, setCurrentRole] = useState<'examinee' | 'supervisor'>('examinee')
   const [hasEssayLock, setHasEssayLock] = useState<boolean>(false)
   const [hasSubmittedThisMonth, setHasSubmittedThisMonth] = useState<boolean>(false)
+  const [isStatusLoaded, setIsStatusLoaded] = useState<boolean>(false)
 
   // 檢查是否登入與是否填寫顯示名稱
   useEffect(() => {
@@ -32,38 +31,46 @@ export default function HomePage() {
     const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
     async function checkCloudStatus() {
-      const lock = getEssayLock()
-      setHasEssayLock(!!lock)
+      try {
+        const lock = getEssayLock()
+        let isLocked = !!lock
 
-      const userExams = await getUserExamsFirestore(currentUid)
-      const essayExams = userExams.filter((e) => e.mode === 'essay')
+        const userExams = await getUserExamsFirestore(currentUid)
+        const essayExams = userExams.filter((e) => e.mode === 'essay')
 
-      // 檢查雲端是否有本月提交/已批改的申論考卷
-      const submittedThisMonth = essayExams.some((e) => {
-        if (!e.submittedAt) return false
-        const d = new Date(e.submittedAt)
-        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-        return ym === currentYM
-      })
-      setHasSubmittedThisMonth(submittedThisMonth)
+        // 檢查雲端是否有本月提交/已批改的申論考卷
+        const submittedThisMonth = essayExams.some((e) => {
+          if (!e.submittedAt) return false
+          const d = new Date(e.submittedAt)
+          const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+          return ym === currentYM
+        })
+        setHasSubmittedThisMonth(submittedThisMonth)
 
-      // 若有待批改中的雲端申論考卷，同步呈現審核中狀態
-      const pendingExam = essayExams.find((e) => e.status === 'submitted')
-      if (pendingExam) {
-        setHasEssayLock(true)
+        // 若有待批改中的雲端申論考卷，同步呈現審核中狀態
+        const pendingExam = essayExams.find((e) => e.status === 'submitted')
+        if (pendingExam) {
+          isLocked = true
+        }
+        setHasEssayLock(isLocked)
+      } finally {
+        setIsStatusLoaded(true)
       }
     }
 
     checkCloudStatus()
   }, [userDoc?.uid])
 
-  if (loading || !userDoc) return (
+  if (loading || !userDoc || !isStatusLoaded) return (
     <div className={styles.loading}>
       <p className="pixel-title">載入中...</p>
     </div>
   )
 
   const displayName = userDoc.displayName || '客服勇者'
+  const isSupervisorOrAdmin = userDoc.role === 'supervisor' || userDoc.role === 'admin'
+  const isExaminee = !isSupervisorOrAdmin
+  const showExamineeContent = isExaminee || userDoc.role === 'admin' // 管理員具備全視角存取權限
 
   return (
     <main className={styles.main}>
@@ -71,22 +78,6 @@ export default function HomePage() {
       <nav className={styles.navbar}>
         <div className={styles.navLeft}>
           <span className={`pixel-title ${styles.navTitle}`}>🍁 客服考核大廳</span>
-          {/* 角色切換選單（方便體驗主管與考生視角） */}
-          <div className={styles.roleToggleGroup}>
-            <span className={styles.roleLabel}>🎭 體驗視角：</span>
-            <button
-              className={`${styles.roleBtn} ${currentRole === 'examinee' ? styles.roleActive : ''}`}
-              onClick={() => setCurrentRole('examinee')}
-            >
-              考生
-            </button>
-            <button
-              className={`${styles.roleBtn} ${currentRole === 'supervisor' ? styles.roleActive : ''}`}
-              onClick={() => setCurrentRole('supervisor')}
-            >
-              👑 主管
-            </button>
-          </div>
         </div>
 
         <div className={styles.navRight}>
@@ -94,7 +85,7 @@ export default function HomePage() {
             👤 {displayName} ({
               userDoc.role === 'admin' 
                 ? '系統管理員' 
-                : currentRole === 'supervisor' 
+                : userDoc.role === 'supervisor' 
                 ? '主管權限' 
                 : '客服新人'
             })
@@ -120,15 +111,17 @@ export default function HomePage() {
           <div className={styles.dialogBox}>
             <div className={styles.dialogHeader}>【考核特訓營大廳】</div>
             <p className={styles.dialogText}>
-              {currentRole === 'examinee'
-                ? `歡迎來到星光冒險營！${displayName}，今天的客服考核準備好了嗎？完成綜合與申論模式提升你的實戰能力吧！`
-                : `歡迎主管！在此您可以批改考生的申論題、追蹤全體考生的考核進度與維護系統題庫。`}
+              {userDoc.role === 'admin'
+                ? `歡迎系統管理員 ${displayName}！您擁有完整權限，可體驗考核模式、進行試卷批改、查看進度與設定系統參數。`
+                : userDoc.role === 'supervisor'
+                ? `歡迎主管 ${displayName}！在此您可以批改考生的申論題、追蹤全體考生的考核進度與維護系統題庫。`
+                : `歡迎來到星光冒險營！${displayName}，今天的客服考核準備好了嗎？完成綜合與申論模式提升你的實戰能力吧！`}
             </p>
           </div>
         </section>
 
-        {/* 月度任務提示條（僅考生視角且未完成或有審核中申論時顯示） */}
-        {currentRole === 'examinee' && (
+        {/* 月度任務提示條 */}
+        {showExamineeContent && (
           <section className={`${styles.noticeBanner} ${hasSubmittedThisMonth && !hasEssayLock ? styles.noticeSuccess : ''}`}>
             <div className={styles.noticeIcon}>
               {hasEssayLock ? '⏳' : hasSubmittedThisMonth ? '✅' : '📢'}
@@ -150,8 +143,8 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* 模式選擇卡片區域（僅考生顯示，主管不需要參加考核） */}
-        {currentRole === 'examinee' && (
+        {/* 模式選擇卡片區域（考生與管理員均可查看） */}
+        {showExamineeContent && (
           <section className={styles.modeSection}>
             <h2 className={`pixel-title ${styles.sectionTitle}`}>⚔️ 冒險考核模式</h2>
             <div className={styles.modeGrid}>
@@ -207,7 +200,7 @@ export default function HomePage() {
         {/* 功能入口及主管專屬區域 */}
         <section className={styles.portalSection}>
           <h2 className={`pixel-title ${styles.sectionTitle}`}>
-            {currentRole === 'supervisor' ? '👑 主管管理選單' : '📊 冒險成就與統計'}
+            {isSupervisorOrAdmin ? '👑 管理與統計控制台' : '📊 冒險成就與統計'}
           </h2>
           <div className={styles.quickLinks}>
             {/* 全員共通：查看排行榜 */}
@@ -219,8 +212,8 @@ export default function HomePage() {
               🏆 冒險排行榜
             </button>
 
-            {/* 僅考生視角顯示：我的歷次成績與錯題 */}
-            {currentRole === 'examinee' && (
+            {/* 考生與管理員顯示：我的歷次成績與錯題 */}
+            {showExamineeContent && (
               <button
                 id="btn-my-results"
                 className={`btn-pixel btn-ghost ${styles.quickBtn}`}
@@ -230,35 +223,35 @@ export default function HomePage() {
               </button>
             )}
 
-            {/* 主管視角專屬：批改、團隊進度追蹤與題庫管理 */}
-            {(currentRole === 'supervisor' || userDoc.role === 'admin') && (
+            {/* 主管視角與管理員專屬 */}
+            {isSupervisorOrAdmin && (
               <>
                 <button
                   id="btn-admin-grade"
                   className={`btn-pixel btn-primary ${styles.adminBtn}`}
                   onClick={() => router.push('/admin/grade')}
                 >
-                  👑 審核與批改考卷 (Grade)
+                  👑 審核與批改考卷
                 </button>
                 <button
                   id="btn-admin-users"
                   className={`btn-pixel btn-secondary ${styles.adminBtn}`}
                   onClick={() => router.push('/admin/users')}
                 >
-                  👥 團隊考核狀況與進度總覽 (Users)
+                  👥 團隊考核狀況與進度總覽
                 </button>
                 <button
                   id="btn-admin-questions"
                   className={`btn-pixel btn-ghost ${styles.adminBtn}`}
                   onClick={() => router.push('/admin/questions')}
                 >
-                  📚 題庫管理與 Excel 匯入 (Questions)
+                  📚 題庫管理與 Excel 匯入
                 </button>
               </>
             )}
 
-            {/* 系統管理員 (Admin) 專屬：權限與參數設定（主管視角不可見，僅系統管理員獨占） */}
-            {userDoc.role === 'admin' && currentRole !== 'supervisor' && (
+            {/* 系統管理員 (Admin) 專屬：權限與參數設定 */}
+            {userDoc.role === 'admin' && (
               <button
                 id="btn-admin-settings"
                 className={`btn-pixel ${styles.adminBtn}`}
@@ -271,7 +264,7 @@ export default function HomePage() {
                 }}
                 onClick={() => router.push('/admin/settings')}
               >
-                ⚙️ 系統權限與參數管理 (Admin Only)
+                ⚙️ 系統權限與參數管理
               </button>
             )}
           </div>

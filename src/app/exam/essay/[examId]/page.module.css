@@ -221,7 +221,7 @@
   border: 2px solid var(--color-gray-4);
   color: var(--color-parchment);
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   line-height: 1.9;
   resize: vertical;
   min-height: 240px;

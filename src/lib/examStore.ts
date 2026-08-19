@@ -214,6 +214,31 @@ export async function getUserExamsFirestore(uid: string): Promise<CloudExamDoc[]
 }
 
 /**
+ * 查詢全系統所有已提交/已批改的考卷歷史 (供主管/管理員分析)
+ */
+export async function getAllExamsFirestore(): Promise<CloudExamDoc[]> {
+  try {
+    const snap = await getDocs(collection(db, EXAMS_COLLECTION))
+    const list: CloudExamDoc[] = []
+    snap.forEach((docSnap) => {
+      const data = docSnap.data()
+      if (data.status && data.status !== 'in_progress') {
+        list.push({
+          ...data,
+          startedAt: data.startedAt?.toDate ? data.startedAt.toDate() : new Date(),
+          submittedAt: data.submittedAt?.toDate ? data.submittedAt.toDate() : null,
+          gradedAt: data.gradedAt?.toDate ? data.gradedAt.toDate() : null,
+        } as CloudExamDoc)
+      }
+    })
+    return list.sort((a, b) => (b.startedAt?.getTime?.() || 0) - (a.startedAt?.getTime?.() || 0))
+  } catch (e) {
+    console.error('Failed to get all exams from Firestore:', e)
+    return []
+  }
+}
+
+/**
  * 查詢所有待批改考卷 (status === 'submitted')
  */
 export async function getPendingExamsFirestore(): Promise<CloudExamDoc[]> {

@@ -6,8 +6,11 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import styles from './settings.module.css'
 
+import { getDocs, collection } from 'firebase/firestore'
+import { db } from '@/lib/firebase/client'
+
 export default function AdminSettingsPage() {
-  const { userDoc, role, loading } = useAuth()
+  const { userDoc, role, loading, refreshUserDoc } = useAuth()
   const router = useRouter()
 
   // Admin 名單與 Supervisor 名單 state
@@ -24,6 +27,7 @@ export default function AdminSettingsPage() {
   const [essayTimePerQuestion, setEssayTimePerQuestion] = useState(600)
 
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [isSyncingSheets, setIsSyncingSheets] = useState(false)
 
   useEffect(() => {
     // 權限檢查：若非 admin 則無權造訪此頁面
@@ -66,6 +70,7 @@ export default function AdminSettingsPage() {
       localStorage.setItem('cs_admin_emails', JSON.stringify(updated))
     }
     setNewEmailInput('')
+    refreshUserDoc()
     showToast(`✅ 已新增系統管理員：${trimmed}`)
   }
 
@@ -75,6 +80,7 @@ export default function AdminSettingsPage() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('cs_admin_emails', JSON.stringify(updated))
     }
+    refreshUserDoc()
     showToast(`🗑️ 已移除系統管理員：${emailToRemove}`)
   }
 
@@ -96,6 +102,7 @@ export default function AdminSettingsPage() {
       localStorage.setItem('cs_supervisor_emails', JSON.stringify(updated))
     }
     setNewSupervisorEmailInput('')
+    refreshUserDoc()
     showToast(`✅ 已新增主管授權：${trimmed}`)
   }
 
@@ -105,11 +112,65 @@ export default function AdminSettingsPage() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('cs_supervisor_emails', JSON.stringify(updated))
     }
+    refreshUserDoc()
     showToast(`🗑️ 已移除主管授權：${emailToRemove}`)
   }
 
   const handleSaveSettings = () => {
     showToast('💾 系統參數與管理員名單設定儲存成功！')
+  }
+
+  const handleSyncGoogleSheets = async () => {
+    setIsSyncingSheets(true)
+    try {
+      // 1. 從雲端 Firestore 拉取所有非 in_progress 的已完成/已提交試卷
+      const snap = await getDocs(collection(db, 'exams'))
+      const allExams: any[] = []
+      snap.forEach((d) => {
+        const data = d.data()
+        if (data.status && data.status !== 'in_progress') {
+          allExams.push({ id: d.id, ...data })
+        }
+      })
+
+      if (allExams.length === 0) {
+        showToast('ℹ️ 目前雲端尚無可同步的考卷紀錄。')
+        return
+      }
+
+      // 2. 逐筆呼叫匯出 API 送往 Google Sheets
+      let successCount = 0
+      for (const exam of allExams) {
+        const userAttemptCount = allExams.filter(
+          (e) => e.uid === exam.uid && e.mode === exam.mode
+        ).length || 1
+
+        const dateObj = exam.submittedAt?.toDate ? exam.submittedAt.toDate() : new Date()
+
+        await fetch('/api/export-score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: exam.email || 'examinee@example.com',
+            displayName: exam.displayName || '客服勇者',
+            date: dateObj.toLocaleString('zh-TW', { hour12: false }),
+            mode: exam.mode,
+            score: exam.score || 0,
+            maxScore: 100,
+            passed: exam.passed || false,
+            attemptCount: userAttemptCount,
+          }),
+        })
+        successCount++
+      }
+
+      showToast(`✅ 手動同步完成！已成功對齊並觸發 ${successCount} 筆成績資料至 Google Sheets！`)
+    } catch (err: any) {
+      console.error('Manual Sheet Sync Error:', err)
+      showToast(`⚠️ 手動同步失敗：${err?.message || '未知錯誤'}`)
+    } finally {
+      setIsSyncingSheets(false)
+    }
   }
 
   const showToast = (msg: string) => {
@@ -295,6 +356,28 @@ export default function AdminSettingsPage() {
           <div style={{ marginTop: 24, textAlign: 'right' }}>
             <button className="btn-pixel btn-primary" onClick={handleSaveSettings}>
               💾 儲存所有系統設定
+            </button>
+          </div>
+        </section>
+
+        {/* 3. 手動觸發 Google Sheets 成績資料備份與同步 */}
+        <section className={`pixel-panel ${styles.panel}`} style={{ gridColumn: '1 / -1' }}>
+          <h2 className={styles.panelTitle}>📊 Google Sheets 成績數據手動同步備份</h2>
+          <p className={styles.panelSub}>
+            若遇到網路波動未自動同步，或需要臨時將全站最新雲端成績匯出至 Google Sheets 時，可點擊此按鈕進行人工批次比對寫入。
+          </p>
+
+          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ color: 'var(--color-gray-3)', fontSize: '0.85rem' }}>
+              💡 備註：系統平常會在每筆考卷批改完成時自動寫入；手動同步可補發漏傳紀錄。
+            </div>
+            <button
+              className="btn-pixel btn-secondary"
+              onClick={handleSyncGoogleSheets}
+              disabled={isSyncingSheets}
+              style={{ backgroundColor: '#2b6cb0', borderColor: '#4299e1', color: '#ffffff' }}
+            >
+              {isSyncingSheets ? '🚀 正在同步寫入 Google Sheets...' : '🔄 立即補同步所有成績至 Google Sheets'}
             </button>
           </div>
         </section>

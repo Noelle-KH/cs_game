@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import styles from './page.module.css'
 
 export default function LoginPage() {
-  const { user, userDoc, userDocLoaded, loading, signInWithGoogle, devBypassLogin } = useAuth()
+  const { user, userDoc, userDocLoaded, loading, signInWithGoogle } = useAuth()
   const router = useRouter()
   const [isLoggingIn, setIsLoggingIn] = useState(false)
 
@@ -88,34 +88,6 @@ export default function LoginPage() {
           <GoogleIcon />
           以 Google 帳號登入
         </button>
-
-        {/* 快速模擬登入按鈕（開發測試免登入） */}
-        <div style={{ display: 'flex', gap: '6px', width: '100%', marginTop: '12px' }}>
-          <button
-            id="btn-dev-bypass-examinee"
-            className={`btn-pixel btn-secondary ${styles.devBypassBtn}`}
-            style={{ flex: 1, fontSize: '0.75rem', padding: '6px 4px' }}
-            onClick={() => devBypassLogin('examinee')}
-          >
-            🚀 免登入 (考生)
-          </button>
-          <button
-            id="btn-dev-bypass-supervisor"
-            className={`btn-pixel btn-secondary ${styles.devBypassBtn}`}
-            style={{ flex: 1, fontSize: '0.75rem', padding: '6px 4px', borderColor: '#f39c12', color: '#f39c12' }}
-            onClick={() => devBypassLogin('supervisor')}
-          >
-            👑 免登入 (主管)
-          </button>
-          <button
-            id="btn-dev-bypass-admin"
-            className={`btn-pixel btn-secondary ${styles.devBypassBtn}`}
-            style={{ flex: 1, fontSize: '0.75rem', padding: '6px 4px', borderColor: '#4a6fa5', color: '#63b3ed' }}
-            onClick={() => devBypassLogin('admin')}
-          >
-            ⚙️ 免登入 (管理員)
-          </button>
-        </div>
 
         {/* 版本標記 */}
         <p className={styles.version}>v1.0 · Phase 1</p>

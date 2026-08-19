@@ -16,7 +16,7 @@ import {
   saveExamSession
 } from '@/lib/examSession'
 import { useAuth } from '@/contexts/AuthContext'
-import { getPendingExamsFirestore, gradeExamFirestore } from '@/lib/examStore'
+import { getPendingExamsFirestore, gradeExamFirestore, getUserExamsFirestore, CloudExamDoc } from '@/lib/examStore'
 import { addHistoryRecord } from '@/lib/historyStore'
 
 // 定義通用後台考卷型別（包含申論與綜合模式）
@@ -154,6 +154,10 @@ export default function AdminGradePage() {
 
       const isPassed = totalScore >= 90
 
+      // 取得該考生此模式歷史考次
+      const userExams = await getUserExamsFirestore(currentExam.uid)
+      const attemptCount = userExams.filter((e: CloudExamDoc) => e.mode === currentExam.mode).length || 1
+
       // 自動寫入 / 匯出至 Google Sheets
       fetch('/api/export-score', {
         method: 'POST',
@@ -166,7 +170,7 @@ export default function AdminGradePage() {
           score: totalScore,
           maxScore: 100,
           passed: isPassed,
-          attemptCount: 1,
+          attemptCount: attemptCount,
         }),
       }).catch((err) => console.error('📊 [Score Sheet Sync Error]', err))
 
