@@ -4,11 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserDoc } from '@/types'
-import {
-  getEssayLock,
-  clearEssayLock,
-  setEssayLock,
-} from '@/lib/examSession'
+import { getEssayLock, clearEssayLock } from '@/lib/examSession'
+import { getUserExamsFirestore, createExamFirestore, CloudExamDoc } from '@/lib/examStore'
 import styles from './page.module.css'
 
 // ⚠️ 開發模式 Mock 使用者
@@ -21,12 +18,6 @@ const DEV_MOCK_USERDOC: UserDoc = {
   lastLoginAt: new Date(),
 }
 
-// 歷史與分數統計（潔淨狀態）
-const MOCK_ESSAY_HISTORY: any[] = []
-
-const THIS_MONTH = '2026-08' // 模擬當月（待換為真實邏輯）
-const HAS_SUBMITTED_THIS_MONTH = false // 模擬本月是否已提交（待換為真實邏輯）
-
 const ESSAY_RULES = [
   { icon: '📝', label: '題型', value: '申論題，共 10 題' },
   { icon: '⏱️', label: '計時', value: '每題 10 分鐘倒數，超時自動換題' },
@@ -35,20 +26,61 @@ const ESSAY_RULES = [
   { icon: '⚠️', label: '並行限制', value: '同時只能存在一場（含待批改中）' },
   { icon: '📅', label: '提交頻率', value: '每月至少提交一次，首頁顯示提醒' },
 ]
-// ─────────────────────────────────────────────────────────────────
 
 export default function EssayLobbyPage() {
   const { user, userDoc, loading, logout } = useAuth()
   const router = useRouter()
   const [isStarting, setIsStarting] = useState(false)
   const [existingLock, setExistingLock] = useState<ReturnType<typeof getEssayLock>>(null)
+  const [essayHistory, setEssayHistory] = useState<CloudExamDoc[]>([])
+  const [hasSubmittedThisMonth, setHasSubmittedThisMonth] = useState(false)
 
   const isDev = process.env.NODE_ENV === 'development'
   const effectiveUserDoc = userDoc ?? (isDev && !loading ? DEV_MOCK_USERDOC : null)
 
+  const now = new Date()
+  const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
   useEffect(() => {
     setExistingLock(getEssayLock())
   }, [])
+
+  useEffect(() => {
+    if (!effectiveUserDoc?.uid) return
+    const currentUid = effectiveUserDoc.uid
+    async function loadCloudHistory() {
+      const allExams = await getUserExamsFirestore(currentUid)
+      const essayExams = allExams.filter((e) => e.mode === 'essay')
+      setEssayHistory(essayExams)
+
+      // 檢查本月是否有提交紀錄 (submitted 或 graded)
+      const submittedThisMonth = essayExams.some((e) => {
+        if (!e.submittedAt) return false
+        const d = new Date(e.submittedAt)
+        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        return ym === currentYearMonth
+      })
+      setHasSubmittedThisMonth(submittedThisMonth)
+
+      // 檢查是否包含狀態為 submitted 待審核中的考卷
+      const pendingExam = essayExams.find((e) => e.status === 'submitted')
+      if (pendingExam) {
+        // 雲端仍有待批改考卷 -> 保持/補上鎖定
+        const lockObj = {
+          examId: pendingExam.id,
+          startedAt: pendingExam.startedAt?.toISOString
+            ? pendingExam.startedAt.toISOString()
+            : new Date().toISOString(),
+        }
+        setExistingLock(lockObj)
+      } else {
+        // 雲端無待批改考卷（已完成批改或無考卷） -> 自動釋放本地 Lock 鎖定
+        clearEssayLock()
+        setExistingLock(null)
+      }
+    }
+    loadCloudHistory()
+  }, [effectiveUserDoc, currentYearMonth, existingLock])
 
   if (loading || !effectiveUserDoc) {
     return (
@@ -64,24 +96,36 @@ export default function EssayLobbyPage() {
   }
 
   async function handleStart() {
-    if (existingLock) return // 有未完成場次，不允許開始
+    if (existingLock || hasSubmittedThisMonth || !effectiveUserDoc) {
+      if (hasSubmittedThisMonth) alert('⚠️ 您本月份已完成申論模式考核，每月限提交一次！')
+      return
+    }
     setIsStarting(true)
 
-    // 假資料：建立一個假 examId 並上鎖
-    await new Promise((r) => setTimeout(r, 800))
-    const newExamId = `essay-mock-${Date.now()}`
-    setEssayLock(newExamId)
-    router.push(`/exam/essay/${newExamId}`)
+    try {
+      const newExamId = `essay-${Date.now()}`
+      await createExamFirestore({
+        id: newExamId,
+        uid: effectiveUserDoc.uid,
+        userEmail: effectiveUserDoc.email,
+        displayName: effectiveUserDoc.displayName,
+        mode: 'essay',
+        answers: [],
+      })
+      router.push(`/exam/essay/${newExamId}`)
+    } catch (e) {
+      console.error('Failed to create essay exam in Firestore:', e)
+      alert('⚠️ 建立申論考卷失敗，請確認網路連線')
+      setIsStarting(false)
+    }
   }
 
-  // DEV 用：清除鎖定（方便反覆測試）
   function handleDevClearLock() {
     clearEssayLock()
     setExistingLock(null)
   }
 
-  const hasSubmittedThisMonth = HAS_SUBMITTED_THIS_MONTH
-  const monthDisplay = THIS_MONTH.replace('-', ' 年 ') + ' 月'
+  const monthDisplay = `${now.getFullYear()} 年 ${now.getMonth() + 1} 月`
 
   return (
     <main className={`pixel-bg ${styles.main}`}>
@@ -169,38 +213,44 @@ export default function EssayLobbyPage() {
             {/* 開始按鈕 */}
             <button
               id="btn-start-essay"
-              className={`btn-pixel btn-secondary ${styles.startBtn} ${existingLock ? styles.startDisabled : ''}`}
+              className={`btn-pixel btn-secondary ${styles.startBtn} ${(existingLock || hasSubmittedThisMonth) ? styles.startDisabled : ''}`}
               onClick={handleStart}
-              disabled={isStarting || !!existingLock}
+              disabled={isStarting || !!existingLock || hasSubmittedThisMonth}
             >
               {isStarting ? (
                 <span className={styles.startingText}>⏳ 準備中...</span>
               ) : existingLock ? (
-                <>🔒 等待批改中（無法開始）</>
+                <>🔒 等待主管批改中（暫無法開始）</>
+              ) : hasSubmittedThisMonth ? (
+                <>✅ 本月申論任務已完成</>
               ) : (
                 <>📝 開始申論考試</>
               )}
             </button>
 
-            {existingLock && (
+            {existingLock ? (
               <p className={styles.lockHintSmall}>
-                批改完成後你將收到系統通知，再回來開始新一場。
+                批改完成後你將收到系統通知，請耐心等候。
               </p>
-            )}
+            ) : hasSubmittedThisMonth ? (
+              <p className={styles.lockHintSmall} style={{ color: '#4ade80' }}>
+                🎉 本月申論考核任務已達標！下個月將開放新的申論特訓。
+              </p>
+            ) : null}
           </section>
 
           {/* 右欄：歷史成績 */}
           <section className={`pixel-panel ${styles.historyPanel}`}>
             <h2 className={`pixel-title ${styles.panelTitle}`}>📊 歷次申論成績</h2>
 
-            {MOCK_ESSAY_HISTORY.length === 0 ? (
+            {essayHistory.length === 0 ? (
               <div className={styles.emptyHistory}>
                 <p>尚無申論記錄</p>
                 <p className={styles.emptyHint}>完成第一次申論後記錄將顯示於此</p>
               </div>
             ) : (
               <div className={styles.historyList}>
-                {MOCK_ESSAY_HISTORY.map((exam) => (
+                {essayHistory.map((exam) => (
                   <div
                     key={exam.id}
                     className={`${styles.historyCard} ${
@@ -212,7 +262,11 @@ export default function EssayLobbyPage() {
                     }`}
                   >
                     <div className={styles.historyInfo}>
-                      <span className={styles.historyDate}>{exam.date}</span>
+                      <span className={styles.historyDate}>
+                        {exam.submittedAt
+                          ? new Date(exam.submittedAt).toLocaleDateString('zh-TW')
+                          : new Date(exam.startedAt).toLocaleDateString('zh-TW')}
+                      </span>
                       <span className={`${styles.statusBadge} ${
                         exam.status === 'graded'
                           ? exam.passed ? styles.badgePassed : styles.badgeFailed
@@ -227,7 +281,7 @@ export default function EssayLobbyPage() {
                       {exam.status === 'graded' ? (
                         <>
                           <span className={`pixel-title ${styles.historyScore} ${exam.passed ? styles.scorePassed : styles.scoreFailed}`}>
-                            {exam.totalScore}
+                            {exam.score}
                           </span>
                           <span className={styles.historyUnit}>/ 100 分</span>
                         </>

@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { getFirestoreQuestions } from '@/lib/questionStore'
 import {
-  saveEssaySession,
   setEssayLock,
   getEssayLock,
 } from '@/lib/examSession'
+import { submitExamFirestore } from '@/lib/examStore'
 import TimerBar from '@/components/TimerBar'
 import ConfirmModal from '@/components/ConfirmModal'
 import styles from './page.module.css'
@@ -76,26 +76,34 @@ export default function EssayExamPage({
     savedRef.current = true
 
     const finalAnswers = answersRef.current
-    const finalExpired = expiredSetRef.current
 
-    saveEssaySession({
-      examId,
-      mode: 'essay',
-      displayName: displayName || DEV_MOCK_DISPLAY_NAME,
-      status: 'submitted',
-      submittedAt: new Date().toISOString(),
-      answers: questions.map((q) => ({
+    async function handleCloudSubmit() {
+      const cloudAnswers = questions.map((q) => ({
         questionId: q.id,
         userAnswer: finalAnswers[q.id] ?? '',
-        timeExpired: finalExpired.has(q.id),
-      })),
-    })
+        questionDoc: q,
+      }))
 
-    // 保持 lock（待主管批改後才清除）
-    setEssayLock(examId)
+      try {
+        await submitExamFirestore({
+          examId,
+          answers: cloudAnswers,
+          choiceScore: 0,
+          essayScore: 0,
+          isFullyAutoGraded: false,
+        })
+      } catch (e) {
+        console.error('Failed to submit essay exam to Firestore:', e)
+      }
 
-    router.push(`/exam/essay/${examId}/result`)
-  }, [phase, examId, displayName, questions, router])
+      // 保持 Local Lock (鎖定場次)
+      setEssayLock(examId)
+
+      router.push(`/exam/essay/${examId}/result`)
+    }
+
+    handleCloudSubmit()
+  }, [phase, examId, questions, router])
 
   // ── 計時器 ────────────────────────────────────────────────────
   useEffect(() => {

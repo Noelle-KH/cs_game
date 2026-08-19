@@ -10,10 +10,10 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：✅ 綜合考場實時雲端 `exams` 串接完成、錯題回顧與主管閱卷評分連動修復、系統權限後台 Admin/Supervisor 授權層級劃分完成
+**專案階段**：✅ 申論模式 (`/exam/essay/*`) 全面雲端化串接完成、本月申論任務完成狀態與雲端自動解鎖防重複考邏輯修復
 **分支**：`main` / `feat/phase1-auth`
-**PRD 版本**：v1.1
-**最後更新**：2026-08-18
+**PRD 規範**：v1.1
+**最後更新**：2026-08-19
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.1）
@@ -26,17 +26,44 @@
 - [x] 綜合模式考試隨機洗牌去重、考卷實時寫入雲端 Firestore `exams` 集合
 - [x] 主管閱卷後台 (`/admin/grade`)：自動隱藏選擇題、問答題配分上限更正為單題 5 分（總分 100 分）
 - [x] 錯題回顧 (`/exam/quiz/[examId]/review`) 與成績結果頁 (`/exam/quiz/[examId]/result`) 雲端資料與主管批改分數實時連動
-- [x] 個人歷次成績頁面 (`/profile/results`)：過濾 `in_progress` 作廢考卷，僅採計真實提交記錄
 - [x] 獨立系統權限與參數管理後台 (`/admin/settings`)：新增 Admin (系統管理員) 與 Supervisor (主管) 雙層級名單授權與破版修復
+- [x] 申論模式 (`/exam/essay/*`) 全面雲端化串接（考卷改為寫入與讀取 Firestore `exams` 集合）
+- [x] 驗證客服新人「每月申論任務限制」與鎖定考場自動解鎖邏輯
 
 ### 下次待辦
-- [ ] 申論模式 (`/exam/essay/*`) 全面雲端化串接（將 Session 改為寫入 Firestore `exams` 集合）
-- [ ] 批改完成後自動觸發 Google Sheets 成績匯出 (/api/export-score)
-- [ ] 驗證客服新人「每月申論任務限制」與鎖定考場邏輯
+- [ ] 批改完成後自動觸發 Google Sheets 成績匯出 (/api/export-score) 整合與測試
 
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-08-19 | 申論模式考場與成績頁面全面雲端化 (`exams` 集合串接)
+
+**負責人**：AI  
+**開發時長**：約 1.0 小時
+
+#### ✅ 今日完成
+1. **申論大廳 (`/exam/essay/lobby`) 實時連動 Firestore**：
+   - 移除舊版假歷史紀錄，改由 `getUserExamsFirestore(uid)` 實時拉取當前考生的雲端申論歷史。
+   - 開始申論考試時透過 `createExamFirestore` 於 Firestore `exams` 集合建立 `in_progress` 雲端考卷。
+   - 動態計算當月提交狀態（`hasSubmittedThisMonth`）與考場鎖定狀態。
+2. **每月申論次數限制與防重複考試優化**：
+   - 當考生本月已完成申論考試（主管已批改或已提交），申論大廳按鈕自動顯示 `✅ 本月申論任務已完成` 並鎖定禁用。
+   - 提示區顯示 `🎉 本月申論考核任務已達標！下個月將開放新的申論特訓。`，並於 `handleStart` 函數加入防護阻擋。
+3. **申論考場作答頁 (`/exam/essay/[examId]`) 交卷串接**：
+   - 考卷提交時改呼叫 `submitExamFirestore` 將考生作答紀錄實時更新寫入雲端 `exams` 集合。
+4. **申論成績與評分預覽頁 (`/exam/essay/[examId]/result`) 實時同步**：
+   - 頁面改為經由 `getExamByIdFirestore(examId)` 取得真實考卷資料，支援即時呈現「待主管批改」與主管批改後的「最終總分、通過橫幅與各題評語」。
+5. 全面通過 `npx tsc --noEmit` 型別驗證。
+
+#### ⚠️ 遭遇問題
+- **TypeScript `effectiveUserDoc` 可能為 null 錯誤**：在 React Effect 內直接引用被判斷可能為 null 的物件，已建立區域變數 `currentUid` 安全解包處理。
+
+#### ⏭️ 下次開始
+1. 批改完成後自動觸發 Google Sheets 成績匯出 (/api/export-score)
+2. 驗證客服新人「每月申論任務限制」與鎖定考場邏輯
 
 ---
 

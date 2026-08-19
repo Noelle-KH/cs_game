@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import styles from './page.module.css'
 import { getEssayLock } from '@/lib/examSession'
+import { getUserExamsFirestore } from '@/lib/examStore'
 
 export default function HomePage() {
   const { user, userDoc, userDocLoaded, loading, logout } = useAuth()
@@ -13,6 +14,7 @@ export default function HomePage() {
   // 模擬角色切換（方便開發測試視角）
   const [currentRole, setCurrentRole] = useState<'examinee' | 'supervisor'>('examinee')
   const [hasEssayLock, setHasEssayLock] = useState<boolean>(false)
+  const [hasSubmittedThisMonth, setHasSubmittedThisMonth] = useState<boolean>(false)
 
   // 檢查是否登入與是否填寫顯示名稱
   useEffect(() => {
@@ -22,11 +24,38 @@ export default function HomePage() {
     }
   }, [loading, userDocLoaded, user, userDoc, router])
 
-  // 檢查申論題未完成狀態
+  // 實時查詢雲端考卷：檢查申論題鎖定狀態與本月是否已提交
   useEffect(() => {
-    const lock = getEssayLock()
-    setHasEssayLock(!!lock)
-  }, [])
+    if (!userDoc?.uid) return
+    const currentUid = userDoc.uid
+    const now = new Date()
+    const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
+    async function checkCloudStatus() {
+      const lock = getEssayLock()
+      setHasEssayLock(!!lock)
+
+      const userExams = await getUserExamsFirestore(currentUid)
+      const essayExams = userExams.filter((e) => e.mode === 'essay')
+
+      // 檢查雲端是否有本月提交/已批改的申論考卷
+      const submittedThisMonth = essayExams.some((e) => {
+        if (!e.submittedAt) return false
+        const d = new Date(e.submittedAt)
+        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        return ym === currentYM
+      })
+      setHasSubmittedThisMonth(submittedThisMonth)
+
+      // 若有待批改中的雲端申論考卷，同步呈現審核中狀態
+      const pendingExam = essayExams.find((e) => e.status === 'submitted')
+      if (pendingExam) {
+        setHasEssayLock(true)
+      }
+    }
+
+    checkCloudStatus()
+  }, [userDoc?.uid])
 
   if (loading || !userDoc) return (
     <div className={styles.loading}>
@@ -98,21 +127,25 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 月度任務提示條（僅考生視角且有未完成/審核中申論時顯示） */}
+        {/* 月度任務提示條（僅考生視角且未完成或有審核中申論時顯示） */}
         {currentRole === 'examinee' && (
-          <section className={styles.noticeBanner}>
-            <div className={styles.noticeIcon}>📢</div>
+          <section className={`${styles.noticeBanner} ${hasSubmittedThisMonth && !hasEssayLock ? styles.noticeSuccess : ''}`}>
+            <div className={styles.noticeIcon}>
+              {hasEssayLock ? '⏳' : hasSubmittedThisMonth ? '✅' : '📢'}
+            </div>
             <div className={styles.noticeContent}>
-              <strong>【本月任務提醒】</strong> 
+              <strong>【本月申論任務】</strong> 
               {hasEssayLock 
                 ? ' 您有一場申論考試已提交，目前正等待主管審核評分中！'
+                : hasSubmittedThisMonth
+                ? ' 讚！您本月已順利完成申論模式考核任務！'
                 : ' 依據規範，客服新人每個月至少需提交一次「申論模式」情境考核。'}
             </div>
             <button
               className="btn-pixel btn-secondary"
               onClick={() => router.push('/exam/essay/lobby')}
             >
-              {hasEssayLock ? '查看進度' : '前往申論考場'}
+              {hasEssayLock ? '查看進度' : hasSubmittedThisMonth ? '檢視紀錄 / 考場' : '前往申論考場'}
             </button>
           </section>
         )}
