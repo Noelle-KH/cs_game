@@ -169,13 +169,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signInWithGoogle() {
     try {
-      // 使用 signInWithRedirect 避開所有 Cross-Origin-Opener-Policy 彈窗阻擋問題
-      await signInWithRedirect(auth, googleProvider)
-      return null
+      const result = await signInWithPopup(auth, googleProvider)
+      const firebaseUser = result.user
+      return await handleUserPostLogin(firebaseUser)
     } catch (e: any) {
       console.error('Google Sign-in Error:', e)
       if (e?.code === 'auth/unauthorized-domain') {
         alert('⚠️ 登入失敗：當前網域未獲 Firebase 授權！\n請至 Firebase Console -> Authentication -> Settings -> Authorized domains 新增您的 Vercel 網域。')
+      } else if (e?.code === 'auth/popup-closed-by-user') {
+        // 使用者手動關閉彈窗，不跳出錯誤警報
       } else {
         alert(`⚠️ 登入失敗：${e?.message || '請確認網路或 Google 登入設定'}`)
       }
