@@ -199,7 +199,7 @@ export default function EssayExamPage({
   const hasAnswer = currentAnswer.trim().length > 0
   const isLastQuestion = currentIdx === questions.length - 1
   const wordCount = currentAnswer.length
-  const timeTotal = IS_DEV ? DEV_TIME : TIME_PER_QUESTION
+  const timeTotal = timePerQuestion
 
   return (
     <main className={`pixel-bg ${styles.main}`}>
