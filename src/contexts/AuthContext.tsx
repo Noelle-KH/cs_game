@@ -168,7 +168,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return freshSnap.exists() ? (freshSnap.data() as UserDoc) : null
     } catch (e: any) {
       console.error('Google Sign-in Error:', e)
-      alert(`⚠️ 登入失敗：${e?.message || '請確認網路或 Google 登入設定'}`)
+      if (e?.code === 'auth/unauthorized-domain') {
+        alert('⚠️ 登入失敗：當前網域未獲 Firebase 授權！\n請至 Firebase Console -> Authentication -> Settings -> Authorized domains 新增您的 Vercel 網域。')
+      } else if (e?.code === 'auth/popup-blocked' || e?.code === 'auth/popup-closed-by-user') {
+        alert('⚠️ 登入彈窗被瀏覽器阻擋或關閉，請允許本站跳出彈窗後重試。')
+      } else {
+        alert(`⚠️ 登入失敗：${e?.message || '請確認網路或 Google 登入設定'}`)
+      }
       return null
     }
   }
