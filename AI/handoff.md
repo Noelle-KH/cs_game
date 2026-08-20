@@ -10,10 +10,10 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：✅ 正式部署前淨化處置完成、全站字體舒適度優化、動態權限同步與非同步閃現修復
-**分支**：`main` / `feat/phase1-auth`
+**專案階段**：✅ Vercel 部署修復（COOP 跨域標頭處理與 Google 登入彈窗處置完成）
+**分支**：`main`
 **PRD 規範**：v1.1
-**最後更新**：2026-08-19
+**最後更新**：2026-08-20
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.1）
@@ -30,6 +30,7 @@
 - [x] 申論模式 (`/exam/essay/*`) 全面雲端化串接（考卷改為寫入與讀取 Firestore `exams` 集合）
 - [x] 批改完成後自動觸發 Google Sheets 成績匯出 (`/api/export-score`) 整合與考生真實考次動態計算
 - [x] 部署前環境淨化：清除免登入測試按鈕、體驗視角切換器、修復非同步閃現與全站字體可讀性升級
+- [x] Vercel 部署修復：配置 `Cross-Origin-Opener-Policy: same-origin-allow-popups` 標頭解鎖 Google 登入彈窗被阻擋問題
 
 ### 下次待辦
 - [ ] 執行試卷全流程 Live 端到端覆核與線上營運驗證
@@ -40,7 +41,27 @@
 
 ---
 
-### 2026-08-19 | 部署前環境淨化、全站字體可讀性調優、動態權限降級與非同步閃現修復
+### 2026-08-20 | Vercel 部署 Google 登入 COOP 跨域阻擋問題修復
+
+**負責人**：AI  
+**開發時長**：約 0.5 小時
+
+#### ✅ 今日完成
+1. **跨域標頭檔配置 (`next.config.ts`)**：
+   - 設定 `Cross-Origin-Opener-Policy: same-origin-allow-popups`，解鎖跨網域登入彈窗通訊阻擋問題。
+2. **AuthContext 異常捕獲增強 (`AuthContext.tsx`)**：
+   - 增加 `auth/unauthorized-domain` 與 `auth/popup-blocked` 精準提示訊息。
+3. **TypeScript 配置清理 (`tsconfig.json`)**：
+   - 排除 `.next` 目錄重複檢查，通過 `npx tsc --noEmit` 型別驗證。
+
+#### ⚠️ 遭遇問題
+- **Cross-Origin-Opener-Policy block window.closed**：現代瀏覽器 COOP 策略限制主視窗檢查 Firebase 登入彈窗關閉狀態，已透過放寬 Headers 配置解決。
+
+#### ⏭️ 下次開始
+1. 執行試卷全流程 Live 端到端覆核與線上營運驗證
+
+---
+
 
 **負責人**：AI  
 **開發時長**：約 1.5 小時
