@@ -14,14 +14,6 @@ const nextConfig: NextConfig = {
       },
     ]
   },
-  async rewrites() {
-    return [
-      {
-        source: '/__/auth/:path*',
-        destination: 'https://cs-game-fe154.firebaseapp.com/__/auth/:path*',
-      },
-    ]
-  },
 };
 
 export default nextConfig;
