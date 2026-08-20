@@ -115,13 +115,10 @@ export default function ReviewPage({
   function getStatusLabel(item: { ans: ExamSessionAnswer; q: QuestionDoc }) {
     if (item.ans.timeExpired) return { text: '⏱️ 超時', cls: styles.statusExpired }
     if (item.q.type === 'qa') {
-      if (!isGraded && item.ans.score === undefined) {
-        return { text: '⏳ 待主管審核', cls: styles.statusQa }
-      }
-      if (item.ans.score !== undefined && item.ans.score > 0) {
+      if (item.ans.score !== undefined) {
         return { text: '✅ 已評分', cls: styles.statusCorrect }
       }
-      return { text: '✏️ 問答', cls: styles.statusQa }
+      return { text: '⏳ 待主管審核', cls: styles.statusQa }
     }
     if (item.ans.isCorrect === true) return { text: '✅ 答對', cls: styles.statusCorrect }
     if (item.ans.isCorrect === false) return { text: '❌ 答錯', cls: styles.statusWrong }

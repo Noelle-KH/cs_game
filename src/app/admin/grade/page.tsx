@@ -137,6 +137,7 @@ export default function AdminGradePage() {
       return {
         questionId: ans.questionId,
         userAnswer: ans.userAnswer,
+        isCorrect: ans.isCorrect,
         score: awarded,
         feedback: gradingComments[ans.questionId] || '',
         questionDoc: ans.questionDoc,
