@@ -34,6 +34,7 @@ export default function EssayExamPage({
   const [expiredSet, setExpiredSet] = useState<Set<string>>(new Set())
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [questions, setQuestions] = useState<any[]>([])
+  const [isQuestionsLoaded, setIsQuestionsLoaded] = useState(false)
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const savedRef = useRef(false)
@@ -48,19 +49,23 @@ export default function EssayExamPage({
 
   useEffect(() => {
     async function loadEssayQuestions() {
-      const sysSettings = await getSystemSettings()
-      const timeLimit = sysSettings.essayTimePerQuestion || 600
-      const countLimit = sysSettings.essayQuestionCount || 10
+      try {
+        const sysSettings = await getSystemSettings()
+        const timeLimit = sysSettings.essayTimePerQuestion || 600
+        const countLimit = sysSettings.essayQuestionCount || 10
 
-      setTimePerQuestion(timeLimit)
-      setTimeLeft(timeLimit)
+        setTimePerQuestion(timeLimit)
+        setTimeLeft(timeLimit)
 
-      const allStored = await getFirestoreQuestions()
-      const validQs = allStored.filter(q => q.enabled && q.type === 'essay')
-      // Fisher-Yates 隨機洗牌
-      const shuffled = [...validQs].sort(() => Math.random() - 0.5)
-      // 限制動態題數
-      setQuestions(shuffled.slice(0, countLimit))
+        const allStored = await getFirestoreQuestions()
+        const validQs = allStored.filter(q => q.enabled && q.type === 'essay')
+        // Fisher-Yates 隨機洗牌
+        const shuffled = [...validQs].sort(() => Math.random() - 0.5)
+        // 限制動態題數
+        setQuestions(shuffled.slice(0, countLimit))
+      } finally {
+        setIsQuestionsLoaded(true)
+      }
     }
     loadEssayQuestions()
   }, [])
@@ -166,22 +171,22 @@ export default function EssayExamPage({
   }
 
   // ── Loading / Saving / 無題目 畫面 ─────────────────────────────
-  if ((loading && !IS_DEV) || questions.length === 0) {
-    if (questions.length === 0) {
-      return (
-        <div className={styles.loading} style={{ flexDirection: 'column', gap: 16 }}>
-          <p className="pixel-title">⚠️ 目前題庫中尚無可用的申論題</p>
-          <p style={{ color: '#ccc', fontSize: '0.9rem' }}>請主管至後台（/admin/questions）匯入或啟用申論題後再進行考試。</p>
-          <button className="btn-pixel btn-primary" onClick={() => router.push('/exam/essay/lobby')}>
-            ← 返回申論大廳
-          </button>
-        </div>
-      )
-    }
-
+  if (loading || !isQuestionsLoaded) {
     return (
       <div className={styles.loading}>
-        <p className="pixel-title">載入考試中...</p>
+        <p className="pixel-title animate-float">🚀 載入題庫與考場中...</p>
+      </div>
+    )
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className={styles.loading} style={{ flexDirection: 'column', gap: 16 }}>
+        <p className="pixel-title">⚠️ 目前題庫中尚無可用的申論題</p>
+        <p style={{ color: '#ccc', fontSize: '0.9rem' }}>請主管至後台（/admin/questions）匯入或啟用申論題後再進行考試。</p>
+        <button className="btn-pixel btn-primary" onClick={() => router.push('/exam/essay/lobby')}>
+          ← 返回申論大廳
+        </button>
       </div>
     )
   }

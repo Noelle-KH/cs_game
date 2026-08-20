@@ -32,6 +32,8 @@ export default function ExamPage({
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [questions, setQuestions] = useState<any[]>([])
 
+  const [isQuestionsLoaded, setIsQuestionsLoaded] = useState(false)
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const savedRef = useRef(false)
 
@@ -45,36 +47,40 @@ export default function ExamPage({
 
   useEffect(() => {
     async function loadQuizQuestions() {
-      const sysSettings = await getSystemSettings()
-      const timeLimit = sysSettings.quizTimePerQuestion || 300
-      const countLimit = sysSettings.quizQuestionCount || 20
-      
-      setTimePerQuestion(timeLimit)
-      setTimeLeft(timeLimit)
+      try {
+        const sysSettings = await getSystemSettings()
+        const timeLimit = sysSettings.quizTimePerQuestion || 300
+        const countLimit = sysSettings.quizQuestionCount || 20
+        
+        setTimePerQuestion(timeLimit)
+        setTimeLeft(timeLimit)
 
-      const allStored = await getFirestoreQuestions()
-      
-      // 1. 去除重複題目（以 Question ID 或 Content 做不重複唯一過濾）
-      const uniqueMap = new Map<string, any>()
-      allStored.forEach((q) => {
-        if (q.enabled && (q.type === 'choice' || q.type === 'qa')) {
-          const key = q.id || q.content.trim()
-          if (!uniqueMap.has(key)) {
-            uniqueMap.set(key, q)
+        const allStored = await getFirestoreQuestions()
+        
+        // 1. 去除重複題目（以 Question ID 或 Content 做不重複唯一過濾）
+        const uniqueMap = new Map<string, any>()
+        allStored.forEach((q) => {
+          if (q.enabled && (q.type === 'choice' || q.type === 'qa')) {
+            const key = q.id || q.content.trim()
+            if (!uniqueMap.has(key)) {
+              uniqueMap.set(key, q)
+            }
           }
+        })
+
+        const uniqueQs = Array.from(uniqueMap.values())
+
+        // 2. 正統 Fisher-Yates 嚴謹不重複隨機洗牌
+        for (let i = uniqueQs.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[uniqueQs[i], uniqueQs[j]] = [uniqueQs[j], uniqueQs[i]]
         }
-      })
 
-      const uniqueQs = Array.from(uniqueMap.values())
-
-      // 2. 正統 Fisher-Yates 嚴謹不重複隨機洗牌
-      for (let i = uniqueQs.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[uniqueQs[i], uniqueQs[j]] = [uniqueQs[j], uniqueQs[i]]
+        // 限制動態題數
+        setQuestions(uniqueQs.slice(0, countLimit))
+      } finally {
+        setIsQuestionsLoaded(true)
       }
-
-      // 限制動態題數
-      setQuestions(uniqueQs.slice(0, countLimit))
     }
     loadQuizQuestions()
   }, [])
@@ -226,22 +232,22 @@ export default function ExamPage({
   }
 
   // ── Loading / Saving / 無題目 畫面 ──────────────────────────────
-  if ((loading && !IS_DEV) || questions.length === 0) {
-    if (questions.length === 0) {
-      return (
-        <div className={styles.loading} style={{ flexDirection: 'column', gap: 16 }}>
-          <p className="pixel-title">⚠️ 目前題庫中尚無可用的選擇/問答題</p>
-          <p style={{ color: '#ccc', fontSize: '0.9rem' }}>請請主管至後台（/admin/questions）匯入或啟用題目後再進行考試。</p>
-          <button className="btn-pixel btn-primary" onClick={() => router.push('/exam/quiz/lobby')}>
-            ← 返回考試大廳
-          </button>
-        </div>
-      )
-    }
-
+  if (loading || !isQuestionsLoaded) {
     return (
       <div className={styles.loading}>
-        <p className="pixel-title">載入考試中...</p>
+        <p className="pixel-title animate-float">🚀 載入題庫與考場中...</p>
+      </div>
+    )
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className={styles.loading} style={{ flexDirection: 'column', gap: 16 }}>
+        <p className="pixel-title">⚠️ 目前題庫中尚無可用的選擇/問答題</p>
+        <p style={{ color: '#ccc', fontSize: '0.9rem' }}>請主管至後台（/admin/questions）匯入或啟用題目後再進行考試。</p>
+        <button className="btn-pixel btn-primary" onClick={() => router.push('/exam/quiz/lobby')}>
+          ← 返回考試大廳
+        </button>
       </div>
     )
   }
