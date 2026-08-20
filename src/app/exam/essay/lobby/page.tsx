@@ -1,21 +1,21 @@
-'use client'
-
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserDoc } from '@/types'
 import { getEssayLock, clearEssayLock } from '@/lib/examSession'
 import { getUserExamsFirestore, createExamFirestore, CloudExamDoc } from '@/lib/examStore'
+import { getSystemSettings } from '@/lib/settingsStore'
+import { SettingsDoc } from '@/types'
 import styles from './page.module.css'
 
-const ESSAY_RULES = [
-  { icon: '📝', label: '題型', value: '申論題，共 10 題' },
-  { icon: '⏱️', label: '計時', value: '每題 10 分鐘倒數，超時自動換題' },
-  { icon: '🎯', label: '評分方式', value: '主管逐題批改（每題 0–10 分，滿分 100）' },
-  { icon: '🔔', label: '批改通知', value: '主管批改完成後系統推送通知' },
-  { icon: '⚠️', label: '並行限制', value: '同時只能存在一場（含待批改中）' },
-  { icon: '📅', label: '提交頻率', value: '每月至少提交一次，首頁顯示提醒' },
-]
+// 輔助函式：格式化秒數為易讀字串
+function formatTimeText(seconds: number): string {
+  if (!seconds || seconds <= 0) return '0 秒'
+  if (seconds < 60) return `${seconds} 秒`
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return secs > 0 ? `${mins} 分 ${secs} 秒` : `${mins} 分鐘`
+}
 
 export default function EssayLobbyPage() {
   const { user, userDoc, loading, logout } = useAuth()
@@ -25,6 +25,15 @@ export default function EssayLobbyPage() {
   const [essayHistory, setEssayHistory] = useState<CloudExamDoc[]>([])
   const [hasSubmittedThisMonth, setHasSubmittedThisMonth] = useState(false)
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false)
+  const [sysSettings, setSysSettings] = useState<SettingsDoc>({
+    sheetsIdQuestions: '',
+    sheetsIdResults: '',
+    passThreshold: 90,
+    quizQuestionCount: 20,
+    essayQuestionCount: 10,
+    quizTimePerQuestion: 300,
+    essayTimePerQuestion: 600,
+  })
 
   const now = new Date()
   const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -38,7 +47,21 @@ export default function EssayLobbyPage() {
 
   useEffect(() => {
     setExistingLock(getEssayLock())
+    async function loadSettings() {
+      const s = await getSystemSettings()
+      setSysSettings(s)
+    }
+    loadSettings()
   }, [])
+
+  const dynamicEssayRules = [
+    { icon: '📝', label: '題型', value: `申論題，共 ${sysSettings.essayQuestionCount} 題` },
+    { icon: '⏱️', label: '計時', value: `每題 ${formatTimeText(sysSettings.essayTimePerQuestion)} 倒數，超時自動換題` },
+    { icon: '🎯', label: '評分方式', value: `主管逐題批改（每題 0–${Math.round(100 / (sysSettings.essayQuestionCount || 10))} 分，滿分 100）` },
+    { icon: '🔔', label: '批改通知', value: '主管批改完成後系統推送通知' },
+    { icon: '⚠️', label: '並行限制', value: '同時只能存在一場（含待批改中）' },
+    { icon: '📅', label: '提交頻率', value: '每月至少提交一次，首頁顯示提醒' },
+  ]
 
   useEffect(() => {
     if (!userDoc?.uid) {
@@ -201,7 +224,7 @@ export default function EssayLobbyPage() {
           <section className={`pixel-panel ${styles.rulesPanel}`}>
             <h2 className={`pixel-title ${styles.panelTitle}`}>📜 考試規則</h2>
             <ul className={styles.ruleList}>
-              {ESSAY_RULES.map((rule) => (
+              {dynamicEssayRules.map((rule) => (
                 <li key={rule.label} className={styles.ruleItem}>
                   <span className={styles.ruleIcon}>{rule.icon}</span>
                   <div>

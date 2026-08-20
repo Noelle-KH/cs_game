@@ -1,9 +1,8 @@
-'use client'
-
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { loadExamSession, ExamSession } from '@/lib/examSession'
 import { addHistoryRecord } from '@/lib/historyStore'
+import { getSystemSettings } from '@/lib/settingsStore'
 import styles from './page.module.css'
 
 const IS_DEV = process.env.NODE_ENV === 'development'
@@ -20,10 +19,14 @@ export default function ResultPage({
   const [session, setSession] = useState<ExamSession | null>(null)
   const [showScore, setShowScore] = useState(false)
   const [loadingResult, setLoadingResult] = useState(true)
+  const [passThreshold, setPassThreshold] = useState(90)
 
   useEffect(() => {
     async function fetchResultData() {
       setLoadingResult(true)
+      const settings = await getSystemSettings()
+      setPassThreshold(settings.passThreshold ?? 90)
+
       // 1. 優先從 Firestore 讀取最新雲端考卷狀態與得分
       const cloudExam = await getExamByIdFirestore(examId)
       if (cloudExam) {
@@ -111,7 +114,7 @@ export default function ResultPage({
                 {passed ? '恭喜通過！' : '繼續加油！'}
               </span>
               <span className={styles.bannerSub}>
-                {passed ? '成績已達通過門檻 90 分' : '差一點就到了，再試一次吧！'}
+                {passed ? `成績已達通過門檻 ${passThreshold} 分` : '差一點就到了，再試一次吧！'}
               </span>
             </div>
           )}
@@ -128,7 +131,7 @@ export default function ResultPage({
               <p className={styles.scoreNote}>
                 {isSubmitted
                   ? `📝 選擇題得分：${session.choiceScore ?? score} 分（問答題待主管評分）`
-                  : `🎉 最終總成績：${score} 分 (${passed ? '✅ 已達通過門檻 90 分' : `❌ 距通過門檻還差 ${90 - score} 分`})`}
+                  : `🎉 最終總成績：${score} 分 (${passed ? `✅ 已達通過門檻 ${passThreshold} 分` : `❌ 距通過門檻還差 ${passThreshold - score} 分`})`}
               </p>
             </div>
           </div>

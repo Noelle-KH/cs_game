@@ -1,27 +1,33 @@
-'use client'
-
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { UserDoc } from '@/types'
 import styles from './page.module.css'
-
 import { createExamFirestore, getUserExamsFirestore } from '@/lib/examStore'
+import { getSystemSettings } from '@/lib/settingsStore'
+import { SettingsDoc } from '@/types'
 
-const QUIZ_RULES = [
-  { icon: '📋', label: '題型', value: '選擇題 + 問答題混合，共 20 題' },
-  { icon: '⏱️', label: '計時', value: '每題 5 分鐘倒數，超時自動交卷' },
-  { icon: '🎯', label: '通過門檻', value: '90 分（含）以上' },
-  { icon: '📊', label: '計分方式', value: '每題 5 分，共 100 分' },
-  { icon: '🔁', label: '重複作答', value: '可無限刷題，排行榜取最高分' },
-  { icon: '⚡', label: '計時基準', value: '以伺服器時間為準，不可修改' },
-]
-// ────────────────────────────────────────────────────────────────
+// 輔助函式：格式化秒數為易讀字串
+function formatTimeText(seconds: number): string {
+  if (!seconds || seconds <= 0) return '0 秒'
+  if (seconds < 60) return `${seconds} 秒`
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return secs > 0 ? `${mins} 分 ${secs} 秒` : `${mins} 分鐘`
+}
 
 export default function QuizLobbyPage() {
   const { user, userDoc, loading, logout } = useAuth()
   const router = useRouter()
   const [isStarting, setIsStarting] = useState(false)
+  const [sysSettings, setSysSettings] = useState<SettingsDoc>({
+    sheetsIdQuestions: '',
+    sheetsIdResults: '',
+    passThreshold: 90,
+    quizQuestionCount: 20,
+    essayQuestionCount: 10,
+    quizTimePerQuestion: 300,
+    essayTimePerQuestion: 600,
+  })
 
   // 登入狀態檢查：未登入時重導回 /login
   useEffect(() => {
@@ -29,6 +35,14 @@ export default function QuizLobbyPage() {
       router.replace('/login')
     }
   }, [loading, userDoc, router])
+
+  useEffect(() => {
+    async function loadSettings() {
+      const s = await getSystemSettings()
+      setSysSettings(s)
+    }
+    loadSettings()
+  }, [])
 
   if (loading || !userDoc) {
     return (
@@ -64,6 +78,15 @@ export default function QuizLobbyPage() {
   const bestScore = cloudExams.length > 0 
     ? Math.max(...cloudExams.map(e => e.score || 0)) 
     : 0
+
+  const dynamicQuizRules = [
+    { icon: '📋', label: '題型', value: `選擇題 + 問答題混合，共 ${sysSettings.quizQuestionCount} 題` },
+    { icon: '⏱️', label: '計時', value: `每題 ${formatTimeText(sysSettings.quizTimePerQuestion)} 倒數，超時自動交卷` },
+    { icon: '🎯', label: '通過門檻', value: `${sysSettings.passThreshold} 分（含）以上` },
+    { icon: '📊', label: '計分方式', value: `每題 ${Math.round(100 / (sysSettings.quizQuestionCount || 20))} 分，共 100 分` },
+    { icon: '🔁', label: '重複作答', value: '可無限刷題，排行榜取最高分' },
+    { icon: '⚡', label: '計時基準', value: '以伺服器時間為準，不可修改' },
+  ]
 
   async function handleStart() {
     setIsStarting(true)
@@ -123,7 +146,7 @@ export default function QuizLobbyPage() {
           <section className={`pixel-panel ${styles.rulesPanel}`}>
             <h2 className={`pixel-title ${styles.panelTitle}`}>📜 考試規則</h2>
             <ul className={styles.ruleList}>
-              {QUIZ_RULES.map((rule) => (
+              {dynamicQuizRules.map((rule) => (
                 <li key={rule.label} className={styles.ruleItem}>
                   <span className={styles.ruleIcon}>{rule.icon}</span>
                   <div>
