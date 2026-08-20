@@ -75,6 +75,15 @@ export default function HomePage() {
     checkCloudStatus()
   }, [userDoc?.uid])
 
+  // 格式化秒數為易讀字串（如不足 60 秒顯示 X 秒，剛好整分鐘顯示 X 分鐘，包含餘數顯示 X 分 Y 秒）
+  function formatTimeText(seconds: number): string {
+    if (!seconds || seconds <= 0) return '0 秒'
+    if (seconds < 60) return `${seconds} 秒`
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return secs > 0 ? `${mins} 分 ${secs} 秒` : `${mins} 分鐘`
+  }
+
   if (loading || !userDoc || !isStatusLoaded) return (
     <div className={styles.loading}>
       <p className="pixel-title">載入中...</p>
@@ -169,7 +178,7 @@ export default function HomePage() {
                 <h3 className={`pixel-title ${styles.modeName}`}>綜合模式</h3>
                 <p className={styles.modeDesc}>
                   選擇題 + 問答題混合出題<br />
-                  {sysSettings.quizQuestionCount} 題 · 每題 {Math.round(sysSettings.quizTimePerQuestion / 60)} 分鐘 · 選擇自動/問答人工審核
+                  {sysSettings.quizQuestionCount} 題 · 每題 {formatTimeText(sysSettings.quizTimePerQuestion)} · 選擇自動/問答人工審核
                 </p>
                 <ul className={styles.modeFeatures}>
                   <li>✅ 交卷即試算選擇題得分，問答題由主管審核</li>
@@ -192,7 +201,7 @@ export default function HomePage() {
                 <h3 className={`pixel-title ${styles.modeName}`}>申論模式</h3>
                 <p className={styles.modeDesc}>
                   模擬實務客服真實情境<br />
-                  {sysSettings.essayQuestionCount} 題 · 每題 {Math.round(sysSettings.essayTimePerQuestion / 60)} 分鐘 · 主管人工審核
+                  {sysSettings.essayQuestionCount} 題 · 每題 {formatTimeText(sysSettings.essayTimePerQuestion)} · 主管人工審核
                 </p>
                 <ul className={styles.modeFeatures}>
                   <li>📋 主管針對應答進行評分與評語</li>
