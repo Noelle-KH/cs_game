@@ -255,6 +255,84 @@ export default function AdminQuestionsPage() {
     window.URL.revokeObjectURL(url)
   }
 
+  // 動態產出標準 Excel 範本下載
+  const handleDownloadTemplate = async () => {
+    const workbook = new ExcelJS.Workbook()
+    const ws = workbook.addWorksheet('題庫導入模板')
+
+    ws.columns = [
+      { header: 'id', key: 'id', width: 22 },
+      { header: '題型 (type)', key: 'type', width: 16 },
+      { header: '難易度 (difficulty)', key: 'difficulty', width: 18 },
+      { header: '情境描述 (context)', key: 'context', width: 35 },
+      { header: '題目主文 (content)', key: 'content', width: 45 },
+      { header: '選項A (optionA)', key: 'optionA', width: 22 },
+      { header: '選項B (optionB)', key: 'optionB', width: 22 },
+      { header: '選項C (optionC)', key: 'optionC', width: 22 },
+      { header: '選項D (optionD)', key: 'optionD', width: 22 },
+      { header: '答案 (answer)', key: 'answer', width: 25 },
+      { header: '解析 (explanation)', key: 'explanation', width: 35 },
+      { header: '是否啟用 (enabled)', key: 'enabled', width: 16 },
+    ]
+
+    // 加入示範範例列
+    ws.addRow({
+      id: 'q-demo-001',
+      type: 'choice',
+      difficulty: 'basic',
+      context: '客服標準退換貨流程說明',
+      content: '客戶要求在 7 天鑑賞期內無理由退貨，客服人員應如何處理？',
+      optionA: '直接拒絕退貨',
+      optionB: '協助引導辦理退貨流程並核對訂單資料',
+      optionC: '要求客戶自行聯繫快遞',
+      optionD: '無視訊息',
+      answer: 'B',
+      explanation: '7 天鑑賞期內應協助辦理退貨並核對客戶資料。',
+      enabled: 'Y',
+    })
+
+    ws.addRow({
+      id: 'q-demo-002',
+      type: 'qa',
+      difficulty: 'medium',
+      context: '當專業名詞客戶不理解時',
+      content: '請解釋何謂「買單」？並說明客服應如何向客戶解說。',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      answer: '看漲的訂單。客服應以簡明用語說明買單即預期價格上漲之交易。',
+      explanation: '問答題無 ABCD 選項，答案欄位填寫參考解答或關鍵字。',
+      enabled: 'Y',
+    })
+
+    ws.addRow({
+      id: 'q-demo-003',
+      type: 'essay',
+      difficulty: 'hard',
+      context: '爭議事件處理與情緒安撫',
+      content: '客戶因系統延遲導致交易損失，情緒非常激動要求賠償。請撰寫一份客服應對模擬對話與處置方案。',
+      optionA: '',
+      optionB: '',
+      optionC: '',
+      optionD: '',
+      answer: '1. 同理心安撫情緒；2. 紀錄受影響訂單；3. 向上呈報處置方案。',
+      explanation: '申論題由主管於後台進行人工批改與給予評語。',
+      enabled: 'Y',
+    })
+
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `cs_game_question_template.xlsx`
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
+
   // 重新從 Firestore 刷新雲端題庫
   const handleResetDefault = async () => {
     setLoadingQuestions(true)
@@ -296,13 +374,12 @@ export default function AdminQuestionsPage() {
           <button className={styles.pixelBtn} onClick={handleExportExcel}>
             📤 匯出現有題庫
           </button>
-          <a
-            href="/question_import_template.xlsx"
-            download
+          <button
             className={`${styles.pixelBtn} ${styles.btnWarning}`}
+            onClick={handleDownloadTemplate}
           >
             📄 下載 Excel 標準模板
-          </a>
+          </button>
         </div>
       </header>
 
