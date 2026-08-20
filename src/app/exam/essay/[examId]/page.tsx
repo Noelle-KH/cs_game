@@ -9,7 +9,7 @@ import {
   setEssayLock,
   getEssayLock,
 } from '@/lib/examSession'
-import { submitExamFirestore } from '@/lib/examStore'
+import { submitExamFirestore, deleteExamFirestore } from '@/lib/examStore'
 import TimerBar from '@/components/TimerBar'
 import ConfirmModal from '@/components/ConfirmModal'
 import styles from './page.module.css'
@@ -212,7 +212,10 @@ export default function EssayExamPage({
         message="確定要放棄並離開申論考試嗎？未提交的內容將不會被記錄。"
         confirmText="🚪 確定放棄離開"
         cancelText="📝 繼續申論作答"
-        onConfirm={() => router.push('/exam/essay/lobby')}
+        onConfirm={() => {
+          deleteExamFirestore(examId)
+          router.push('/exam/essay/lobby')
+        }}
         onCancel={() => setShowExitConfirm(false)}
       />
 

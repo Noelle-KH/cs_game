@@ -1,7 +1,19 @@
 // Exam Store — Firestore exams 雲端考卷集合讀寫服務
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/client'
 import { QuestionDoc } from '@/types'
+
+/**
+ * 刪除未完成交卷的草稿 Session
+ */
+export async function deleteExamFirestore(examId: string): Promise<void> {
+  try {
+    const ref = doc(db, EXAMS_COLLECTION, examId)
+    await deleteDoc(ref)
+  } catch (e) {
+    console.error('Failed to delete unsubmitted exam document from Firestore:', e)
+  }
+}
 
 export interface CloudExamAnswer {
   questionId: string

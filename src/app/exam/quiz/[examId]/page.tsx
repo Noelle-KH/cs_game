@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getFirestoreQuestions } from '@/lib/questionStore'
 import { getSystemSettings } from '@/lib/settingsStore'
 import { saveExamSession, ExamSessionAnswer } from '@/lib/examSession'
-import { submitExamFirestore } from '@/lib/examStore'
+import { submitExamFirestore, deleteExamFirestore } from '@/lib/examStore'
 import TimerBar from '@/components/TimerBar'
 import ConfirmModal from '@/components/ConfirmModal'
 import styles from './page.module.css'
@@ -274,7 +274,10 @@ export default function ExamPage({
         message="確定要離開考試嗎？未提交的作答進度與成績將不會被記錄。"
         confirmText="🚪 確定離開"
         cancelText="⚔️ 繼續挑戰"
-        onConfirm={() => router.push('/exam/quiz/lobby')}
+        onConfirm={() => {
+          deleteExamFirestore(examId)
+          router.push('/exam/quiz/lobby')
+        }}
         onCancel={() => setShowExitConfirm(false)}
       />
 
