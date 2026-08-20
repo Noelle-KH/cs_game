@@ -2,7 +2,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { onAuthStateChanged, User, signInWithPopup, signOut } from 'firebase/auth'
+import { onAuthStateChanged, User, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, googleProvider } from '@/lib/firebase/client'
 import { UserDoc, UserRole } from '@/types'
@@ -26,6 +26,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userDocLoaded, setUserDocLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  async function handleUserPostLogin(firebaseUser: User) {
+    const ref = doc(db, 'users', firebaseUser.uid)
+    const snap = await getDoc(ref)
+    const isAdmin = checkIsAdmin(firebaseUser.email)
+    const isSupervisor = checkIsSupervisor(firebaseUser.email)
+
+    const targetRole: UserRole = isAdmin ? 'admin' : (isSupervisor ? 'supervisor' : 'examinee')
+
+    if (snap.exists()) {
+      const existingData = snap.data() as UserDoc
+      const updatedRole = isAdmin ? 'admin' : (isSupervisor ? 'supervisor' : (existingData.role || 'examinee'))
+      await setDoc(ref, {
+        lastLoginAt: serverTimestamp(),
+        role: updatedRole,
+        email: firebaseUser.email || existingData.email,
+      }, { merge: true })
+    } else {
+      const newUserDoc: Omit<UserDoc, 'createdAt' | 'lastLoginAt'> & { createdAt: any; lastLoginAt: any } = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        displayName: '',
+        role: targetRole,
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+      }
+      await setDoc(ref, newUserDoc)
+    }
+
+    await fetchUserDoc(firebaseUser.uid, firebaseUser.email)
+    const freshSnap = await getDoc(ref)
+    return freshSnap.exists() ? (freshSnap.data() as UserDoc) : null
+  }
+
   async function fetchUserDoc(uid: string, email?: string | null) {
     try {
       const ref = doc(db, 'users', uid)
@@ -34,12 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = snap.data()
         const userEmail = email || data.email
 
-        // 依據最新的授權清單即時判定最新角色
         const isAdmin = checkIsAdmin(userEmail)
         const isSupervisor = checkIsSupervisor(userEmail)
         const currentCalculatedRole: UserRole = isAdmin ? 'admin' : (isSupervisor ? 'supervisor' : 'examinee')
 
-        // 若資料庫中的角色與計算角色不符合（代表授權名單已被新增/移除），寫回雲端更新
         if (data.role !== currentCalculatedRole) {
           await updateDoc(ref, { role: currentCalculatedRole })
           data.role = currentCalculatedRole
@@ -101,7 +132,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    // ⚠️ 開發保護：Firebase 未設定完成時，2 秒後強制結束 loading
+    // 檢查是否有 Redirect 回來的結果
+    getRedirectResult(auth).then(async (result) => {
+      if (result?.user) {
+        await handleUserPostLogin(result.user)
+      }
+    }).catch((err) => {
+      console.error('Redirect Sign-in error:', err)
+    })
+
     const devFallback = setTimeout(() => {
       if (process.env.NODE_ENV === 'development') {
         setLoading(false)
@@ -130,48 +169,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signInWithGoogle() {
     try {
+      // 先嘗試 Popup
       const result = await signInWithPopup(auth, googleProvider)
-      const firebaseUser = result.user
-      const ref = doc(db, 'users', firebaseUser.uid)
-      const snap = await getDoc(ref)
-      const isAdmin = checkIsAdmin(firebaseUser.email)
-      const isSupervisor = checkIsSupervisor(firebaseUser.email)
-
-      const defaultDisplayName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '客服勇者'
-      const targetRole: UserRole = isAdmin ? 'admin' : (isSupervisor ? 'supervisor' : 'examinee')
-
-      // 取得或寫入 users
-      if (snap.exists()) {
-        const existingData = snap.data() as UserDoc
-        const updatedRole = isAdmin ? 'admin' : (isSupervisor ? 'supervisor' : (existingData.role || 'examinee'))
-        await setDoc(ref, {
-          lastLoginAt: serverTimestamp(),
-          role: updatedRole,
-          email: firebaseUser.email || existingData.email,
-        }, { merge: true })
-      } else {
-        // 首次 Google 登入：建立雲端 users 數據（displayName 預設留空，強制跳轉 /setup 讓使用者手動輸入真實姓名）
-        const newUserDoc: Omit<UserDoc, 'createdAt' | 'lastLoginAt'> & { createdAt: any; lastLoginAt: any } = {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName: '',
-          role: targetRole,
-          createdAt: serverTimestamp(),
-          lastLoginAt: serverTimestamp(),
-        }
-        await setDoc(ref, newUserDoc)
+      return await handleUserPostLogin(result.user)
+    } catch (e: any) {
+      console.error('Google Sign-in Popup Error:', e)
+      // 若受 COOP 或 Popup 限制阻擋，自動轉用 Redirect 模式
+      if (
+        e?.code === 'auth/popup-blocked' ||
+        e?.code === 'auth/popup-closed-by-user' ||
+        e?.message?.includes('Cross-Origin-Opener-Policy') ||
+        e?.code === 'auth/cancelled-popup-request'
+      ) {
+        console.warn('Popup blocked or COOP restricted, switching to signInWithRedirect...')
+        await signInWithRedirect(auth, googleProvider)
+        return null
       }
 
-      await fetchUserDoc(firebaseUser.uid, firebaseUser.email)
-      // 回傳 Firestore 中的 userDoc 以便調用端直接做跳轉決定
-      const freshSnap = await getDoc(ref)
-      return freshSnap.exists() ? (freshSnap.data() as UserDoc) : null
-    } catch (e: any) {
-      console.error('Google Sign-in Error:', e)
       if (e?.code === 'auth/unauthorized-domain') {
         alert('⚠️ 登入失敗：當前網域未獲 Firebase 授權！\n請至 Firebase Console -> Authentication -> Settings -> Authorized domains 新增您的 Vercel 網域。')
-      } else if (e?.code === 'auth/popup-blocked' || e?.code === 'auth/popup-closed-by-user') {
-        alert('⚠️ 登入彈窗被瀏覽器阻擋或關閉，請允許本站跳出彈窗後重試。')
       } else {
         alert(`⚠️ 登入失敗：${e?.message || '請確認網路或 Google 登入設定'}`)
       }
