@@ -34,6 +34,7 @@ export interface PendingExamItem {
   answers: {
     questionId: string
     userAnswer: string
+    isCorrect?: boolean
     timeExpired: boolean
     score?: number     // 申論: 0-10；綜合問答題: 得分
     comment?: string
@@ -63,11 +64,7 @@ export default function AdminGradePage() {
     setLoadingPending(true)
     const cloudList = await getPendingExamsFirestore()
     const formatted: PendingExamItem[] = cloudList.map((e) => {
-      // 若為綜合模式，僅將問答題 (qa) 放入待批改題目中，選擇題 (choice) 已經由系統完成電腦打分
-      const gradableAnswers = e.mode === 'quiz' 
-        ? e.answers.filter((a) => a.questionDoc?.type === 'qa' || (!a.questionDoc && a.questionId.includes('qa')))
-        : e.answers
-
+      // 保持全體答題紀錄，供批改完成重新寫入時完整保護選擇題與問答題正解紀錄
       return {
         examId: e.id,
         mode: e.mode,
@@ -77,9 +74,10 @@ export default function AdminGradePage() {
         submittedAt: e.submittedAt?.toLocaleDateString ? e.submittedAt.toLocaleDateString() : '最近提交',
         status: e.status,
         choiceScore: e.choiceScore || 0,
-        answers: gradableAnswers.map((a) => ({
+        answers: e.answers.map((a) => ({
           questionId: a.questionId,
           userAnswer: a.userAnswer,
+          isCorrect: a.isCorrect,
           timeExpired: false,
           score: a.score || 0,
           comment: a.feedback || '',
@@ -304,7 +302,9 @@ export default function AdminGradePage() {
 
               {/* 每題作答詳情與評分輸入 */}
               <div className={styles.questionsContainer}>
-                {currentExam.answers.map((ans, idx) => {
+                {currentExam.answers
+                  .filter(a => currentExam.mode === 'essay' || a.questionDoc?.type === 'qa' || (!a.questionDoc && a.questionId.includes('qa')))
+                  .map((ans, idx) => {
                   const qData = ans.questionDoc || MOCK_ESSAY_QUESTIONS_MAP[ans.questionId] || {
                     content: `題目 (ID: ${ans.questionId})`,
                     context: '',
