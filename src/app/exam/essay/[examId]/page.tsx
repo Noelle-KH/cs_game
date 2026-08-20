@@ -322,9 +322,6 @@ export default function EssayExamPage({
             totalTime={timePerQuestion}
             showLabel
           />
-          {IS_DEV && (
-            <p className={styles.devBadge}>⚠️ DEV MODE：每題 {DEV_TIME} 秒（正式每題 10 分鐘）</p>
-          )}
         </div>
       </div>
     </main>
