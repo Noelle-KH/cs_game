@@ -144,8 +144,10 @@ export default function ResultPage({
           <div className={styles.statsGrid}>
             <div className={styles.statItem}>
               <span className={styles.statIcon}>✅</span>
-              <span className={`pixel-title ${styles.statValue} ${styles.colorGreen}`}>{correctCount}</span>
-              <span className={styles.statLabel}>選擇題答對</span>
+              <span className={`pixel-title ${styles.statValue} ${styles.colorGreen}`}>
+                {session.choiceScore ?? (score - (session.qaScore ?? 0))}
+              </span>
+              <span className={styles.statLabel}>選擇題得分</span>
               <span className={styles.statSub}>/ {totalChoice} 題</span>
             </div>
             <div className={styles.statItem}>
