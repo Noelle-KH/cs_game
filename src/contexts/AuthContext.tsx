@@ -27,6 +27,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   async function handleUserPostLogin(firebaseUser: User) {
+    // 設定 Client-side Cookie 以通過 proxy.ts 路由攔截
+    if (typeof document !== 'undefined') {
+      document.cookie = `__session=${firebaseUser.uid}; path=/; max-age=36000; SameSite=Lax`
+    }
+
     const ref = doc(db, 'users', firebaseUser.uid)
     const snap = await getDoc(ref)
     const isAdmin = checkIsAdmin(firebaseUser.email)
@@ -151,9 +156,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(devFallback)
       if (firebaseUser) {
         setUserDocLoaded(false)
+        if (typeof document !== 'undefined') {
+          document.cookie = `__session=${firebaseUser.uid}; path=/; max-age=36000; SameSite=Lax`
+        }
         await fetchUserDoc(firebaseUser.uid, firebaseUser.email)
         setUser(firebaseUser)
       } else {
+        if (typeof document !== 'undefined') {
+          document.cookie = `__session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+        }
         setUser(null)
         setUserDoc(null)
         setUserDocLoaded(true)
