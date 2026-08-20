@@ -32,9 +32,10 @@ export default function ResultPage({
       // 1. 優先從 Firestore 讀取最新雲端考卷狀態與得分
       const cloudExam = await getExamByIdFirestore(examId)
       if (cloudExam) {
-        const choiceQs = cloudExam.answers.filter(a => a.questionDoc?.type === 'choice')
-        const qaQs = cloudExam.answers.filter(a => a.questionDoc?.type === 'qa')
+        const choiceQs = cloudExam.answers.filter(a => a.questionDoc?.type === 'choice' || (!a.questionDoc && !a.questionId.includes('qa')))
+        const qaQs = cloudExam.answers.filter(a => a.questionDoc?.type === 'qa' || (!a.questionDoc && a.questionId.includes('qa')))
         const correctChoice = choiceQs.filter(a => a.isCorrect === true).length
+        const qaScoreSum = cloudExam.essayScore ?? qaQs.reduce((sum, a) => sum + (a.score || 0), 0)
 
         const fetchedSession: ExamSession = {
           examId: cloudExam.id,
@@ -42,7 +43,8 @@ export default function ResultPage({
           displayName: cloudExam.displayName,
           status: cloudExam.status,
           score: cloudExam.score,
-          choiceScore: cloudExam.choiceScore,
+          choiceScore: cloudExam.choiceScore ?? (cloudExam.score - qaScoreSum),
+          qaScore: qaScoreSum,
           maxScore: 100,
           passed: cloudExam.passed,
           correctCount: correctChoice,
