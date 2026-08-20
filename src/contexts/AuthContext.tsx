@@ -76,14 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const isSupervisor = checkIsSupervisor(userEmail)
         const currentCalculatedRole: UserRole = isAdmin ? 'admin' : (isSupervisor ? 'supervisor' : 'examinee')
 
-        if (data.role !== currentCalculatedRole) {
-          await updateDoc(ref, { role: currentCalculatedRole })
-          data.role = currentCalculatedRole
-        }
+        // 優先尊重 Firestore 中的真實角色設定；若 Firestore 尚未寫入 role，才採用 calculated role
+        const finalRole: UserRole = data.role || currentCalculatedRole
 
         setUserDoc({
           ...data,
-          role: currentCalculatedRole,
+          role: finalRole,
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
           lastLoginAt: data.lastLoginAt?.toDate ? data.lastLoginAt.toDate() : new Date(),
         } as UserDoc)
