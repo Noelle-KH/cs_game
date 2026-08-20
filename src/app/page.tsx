@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import styles from './page.module.css'
 import { getEssayLock } from '@/lib/examSession'
 import { getUserExamsFirestore } from '@/lib/examStore'
+import { getSystemSettings } from '@/lib/settingsStore'
+import { SettingsDoc } from '@/types'
 
 export default function HomePage() {
   const { user, userDoc, userDocLoaded, loading, logout } = useAuth()
@@ -14,6 +16,15 @@ export default function HomePage() {
   const [hasEssayLock, setHasEssayLock] = useState<boolean>(false)
   const [hasSubmittedThisMonth, setHasSubmittedThisMonth] = useState<boolean>(false)
   const [isStatusLoaded, setIsStatusLoaded] = useState<boolean>(false)
+  const [sysSettings, setSysSettings] = useState<SettingsDoc>({
+    sheetsIdQuestions: '',
+    sheetsIdResults: '',
+    passThreshold: 90,
+    quizQuestionCount: 20,
+    essayQuestionCount: 10,
+    quizTimePerQuestion: 300,
+    essayTimePerQuestion: 600,
+  })
 
   // 檢查是否登入與是否填寫顯示名稱
   useEffect(() => {
@@ -23,7 +34,7 @@ export default function HomePage() {
     }
   }, [loading, userDocLoaded, user, userDoc, router])
 
-  // 實時查詢雲端考卷：檢查申論題鎖定狀態與本月是否已提交
+  // 實時查詢雲端考卷與系統參數
   useEffect(() => {
     if (!userDoc?.uid) return
     const currentUid = userDoc.uid
@@ -32,6 +43,9 @@ export default function HomePage() {
 
     async function checkCloudStatus() {
       try {
+        const settings = await getSystemSettings()
+        setSysSettings(settings)
+
         const lock = getEssayLock()
         let isLocked = !!lock
 
@@ -155,7 +169,7 @@ export default function HomePage() {
                 <h3 className={`pixel-title ${styles.modeName}`}>綜合模式</h3>
                 <p className={styles.modeDesc}>
                   選擇題 + 問答題混合出題<br />
-                  20 題 · 每題 5 分鐘 · 選擇自動/問答人工審核
+                  {sysSettings.quizQuestionCount} 題 · 每題 {Math.round(sysSettings.quizTimePerQuestion / 60)} 分鐘 · 選擇自動/問答人工審核
                 </p>
                 <ul className={styles.modeFeatures}>
                   <li>✅ 交卷即試算選擇題得分，問答題由主管審核</li>
@@ -178,7 +192,7 @@ export default function HomePage() {
                 <h3 className={`pixel-title ${styles.modeName}`}>申論模式</h3>
                 <p className={styles.modeDesc}>
                   模擬實務客服真實情境<br />
-                  10 題 · 每題 10 分鐘 · 主管人工審核
+                  {sysSettings.essayQuestionCount} 題 · 每題 {Math.round(sysSettings.essayTimePerQuestion / 60)} 分鐘 · 主管人工審核
                 </p>
                 <ul className={styles.modeFeatures}>
                   <li>📋 主管針對應答進行評分與評語</li>
