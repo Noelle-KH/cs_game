@@ -156,12 +156,17 @@
   gap: var(--space-4);
   background: rgba(204, 61, 61, 0.15);
   border: 2px solid var(--color-maple-red);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-4) var(--space-5);
   box-shadow: var(--shadow-pixel-sm);
 }
 
 .noticeIcon {
   font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: var(--space-2);
+  margin-right: var(--space-1);
 }
 
 .noticeContent {

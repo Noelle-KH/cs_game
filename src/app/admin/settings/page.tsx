@@ -8,6 +8,7 @@ import styles from './settings.module.css'
 
 import { getDocs, collection } from 'firebase/firestore'
 import { db } from '@/lib/firebase/client'
+import { getSystemSettings, saveSystemSettings } from '@/lib/settingsStore'
 
 export default function AdminSettingsPage() {
   const { userDoc, role, loading, refreshUserDoc } = useAuth()
@@ -50,6 +51,17 @@ export default function AdminSettingsPage() {
       setAdminEmails(storedAdmin ? JSON.parse(storedAdmin) : envAdmin)
       setSupervisorEmails(storedSupervisor ? JSON.parse(storedSupervisor) : envSupervisor)
     }
+
+    // 載入雲端/本地系統參數設定
+    async function loadSettings() {
+      const s = await getSystemSettings()
+      setPassThreshold(s.passThreshold ?? 90)
+      setQuizQuestionCount(s.quizQuestionCount ?? 20)
+      setEssayQuestionCount(s.essayQuestionCount ?? 10)
+      setQuizTimePerQuestion(s.quizTimePerQuestion ?? 300)
+      setEssayTimePerQuestion(s.essayTimePerQuestion ?? 600)
+    }
+    loadSettings()
   }, [loading, role, router])
 
   const handleAddEmail = () => {
@@ -116,7 +128,14 @@ export default function AdminSettingsPage() {
     showToast(`🗑️ 已移除主管授權：${emailToRemove}`)
   }
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
+    await saveSystemSettings({
+      passThreshold,
+      quizQuestionCount,
+      essayQuestionCount,
+      quizTimePerQuestion,
+      essayTimePerQuestion,
+    })
     showToast('💾 系統參數與管理員名單設定儲存成功！')
   }
 

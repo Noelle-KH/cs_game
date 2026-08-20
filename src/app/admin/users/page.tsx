@@ -10,7 +10,7 @@ interface ExamineeOverview {
   email: string
   totalQuizExams: number
   totalEssayExams: number
-  thisMonthEssayStatus: 'completed' | 'pending' | 'none'
+  thisMonthEssayStatus: 'passed' | 'failed' | 'pending' | 'none'
   highestScore: number
   lastActiveDate: string
 }
@@ -60,9 +60,13 @@ export default function AdminUsersOverviewPage() {
           
           if (examYM === currentYM) {
             if (item.status === 'graded') {
-              existing.thisMonthEssayStatus = 'completed'
+              if (item.passed) {
+                existing.thisMonthEssayStatus = 'passed'
+              } else if (existing.thisMonthEssayStatus !== 'passed') {
+                existing.thisMonthEssayStatus = 'failed'
+              }
             } else if (item.status === 'submitted') {
-              if (existing.thisMonthEssayStatus !== 'completed') {
+              if (existing.thisMonthEssayStatus !== 'passed' && existing.thisMonthEssayStatus !== 'failed') {
                 existing.thisMonthEssayStatus = 'pending'
               }
             }
@@ -93,7 +97,7 @@ export default function AdminUsersOverviewPage() {
 
   // 彙整統計
   const totalExaminees = examineeList.length
-  const completedEssayCount = examineeList.filter(u => u.thisMonthEssayStatus === 'completed').length
+  const completedEssayCount = examineeList.filter(u => u.thisMonthEssayStatus === 'passed' || u.thisMonthEssayStatus === 'failed').length
   const pendingEssayCount = examineeList.filter(u => u.thisMonthEssayStatus === 'pending').length
   const missingEssayCount = examineeList.filter(u => u.thisMonthEssayStatus === 'none').length
 
@@ -104,7 +108,7 @@ export default function AdminUsersOverviewPage() {
         <div className={styles.titleArea}>
           <span style={{ fontSize: '2.2rem' }}>👥</span>
           <div>
-            <h1 className={styles.titleText}>團隊考生考核狀況總覽</h1>
+            <h1 className={styles.titleText}>團隊考核狀況與進度總覽</h1>
             <p className={styles.subtitle}>
               掌握團隊成員的考核參與次數、當月申論完成狀態與實力表現
             </p>
@@ -168,8 +172,11 @@ export default function AdminUsersOverviewPage() {
                   {u.totalEssayExams} 次
                 </td>
                 <td style={{ textAlign: 'center' }}>
-                  {u.thisMonthEssayStatus === 'completed' && (
-                    <span className={styles.badgeDone}>✅ 已通過/已評分</span>
+                  {u.thisMonthEssayStatus === 'passed' && (
+                    <span className={styles.badgeDone}>✅ PASS 通過</span>
+                  )}
+                  {u.thisMonthEssayStatus === 'failed' && (
+                    <span className={styles.badgeNone}>❌ 未通過 / 已評分</span>
                   )}
                   {u.thisMonthEssayStatus === 'pending' && (
                     <span className={styles.badgePending}>⏳ 待主管閱卷</span>

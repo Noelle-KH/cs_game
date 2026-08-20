@@ -155,12 +155,12 @@ export default function HomePage() {
                 <h3 className={`pixel-title ${styles.modeName}`}>綜合模式</h3>
                 <p className={styles.modeDesc}>
                   選擇題 + 問答題混合出題<br />
-                  20 題 · 每題 5 分鐘 · 即時評分
+                  20 題 · 每題 5 分鐘 · 選擇自動/問答人工審核
                 </p>
                 <ul className={styles.modeFeatures}>
-                  <li>✅ 交卷後立即試算出總分</li>
-                  <li>✅ 附帶詳細錯題解析對照</li>
-                  <li>✅ 可多次刷題，排行榜採最高分</li>
+                  <li>✅ 交卷即試算選擇題得分，問答題由主管審核</li>
+                  <li>✅ 附帶詳細錯題與正解解析對照</li>
+                  <li>✅ 可多次刷題，完成審核後登錄最高分榜</li>
                 </ul>
                 <button
                   id="btn-start-quiz"

@@ -4,6 +4,7 @@ import { use, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { getFirestoreQuestions } from '@/lib/questionStore'
+import { getSystemSettings } from '@/lib/settingsStore'
 import {
   setEssayLock,
   getEssayLock,
@@ -13,10 +14,7 @@ import TimerBar from '@/components/TimerBar'
 import ConfirmModal from '@/components/ConfirmModal'
 import styles from './page.module.css'
 
-// 申論每題 600 秒（10 分鐘），DEV 模式縮短為 60 秒
-const TIME_PER_QUESTION = 600
 const IS_DEV = process.env.NODE_ENV === 'development'
-const DEV_TIME = 60
 const DEV_MOCK_DISPLAY_NAME = '開發測試員'
 
 export default function EssayExamPage({
@@ -30,7 +28,8 @@ export default function EssayExamPage({
 
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [timeLeft, setTimeLeft] = useState(IS_DEV ? DEV_TIME : TIME_PER_QUESTION)
+  const [timePerQuestion, setTimePerQuestion] = useState(600)
+  const [timeLeft, setTimeLeft] = useState(600)
   const [phase, setPhase] = useState<'exam' | 'saving'>('exam')
   const [expiredSet, setExpiredSet] = useState<Set<string>>(new Set())
   const [showExitConfirm, setShowExitConfirm] = useState(false)
@@ -49,12 +48,19 @@ export default function EssayExamPage({
 
   useEffect(() => {
     async function loadEssayQuestions() {
+      const sysSettings = await getSystemSettings()
+      const timeLimit = sysSettings.essayTimePerQuestion || 600
+      const countLimit = sysSettings.essayQuestionCount || 10
+
+      setTimePerQuestion(timeLimit)
+      setTimeLeft(timeLimit)
+
       const allStored = await getFirestoreQuestions()
       const validQs = allStored.filter(q => q.enabled && q.type === 'essay')
       // Fisher-Yates 隨機洗牌
       const shuffled = [...validQs].sort(() => Math.random() - 0.5)
-      // 限制最多 10 題
-      setQuestions(shuffled.slice(0, 10))
+      // 限制動態題數
+      setQuestions(shuffled.slice(0, countLimit))
     }
     loadEssayQuestions()
   }, [])
@@ -138,9 +144,9 @@ export default function EssayExamPage({
       setPhase('saving')
     } else {
       setCurrentIdx(nextIdx)
-      setTimeLeft(IS_DEV ? DEV_TIME : TIME_PER_QUESTION)
+      setTimeLeft(timePerQuestion)
     }
-  }, [timeLeft, phase, questions])
+  }, [timeLeft, phase, questions, timePerQuestion])
 
   // ── 手動作答提交 ──────────────────────────────────────────────
   function handleSubmitAnswer() {
@@ -151,7 +157,7 @@ export default function EssayExamPage({
       setPhase('saving')
     } else {
       setCurrentIdx(nextIdx)
-      setTimeLeft(IS_DEV ? DEV_TIME : TIME_PER_QUESTION)
+      setTimeLeft(timePerQuestion)
     }
   }
 
@@ -313,7 +319,7 @@ export default function EssayExamPage({
         <div className={styles.timerWrap}>
           <TimerBar
             timeLeft={timeLeft}
-            totalTime={timeTotal}
+            totalTime={timePerQuestion}
             showLabel
           />
           {IS_DEV && (

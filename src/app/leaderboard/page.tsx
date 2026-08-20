@@ -61,7 +61,7 @@ export default function LeaderboardPage() {
         <div className={styles.titleArea}>
           <span style={{ fontSize: '2.2rem' }}>🏆</span>
           <div>
-            <h1 className={styles.titleText}>冒險英雄榜 (Leaderboard)</h1>
+            <h1 className={styles.titleText}>冒險排行榜 (Leaderboard)</h1>
             <p className={styles.subtitle}>
               展現頂尖客服勇者的實力，記錄綜合刷題與申論特訓的最高榮譽
             </p>
@@ -91,7 +91,7 @@ export default function LeaderboardPage() {
 
       {loadingLeaderboard ? (
         <div style={{ padding: '60px 0', textAlign: 'center' }}>
-          <p className="pixel-title">載入英雄榜資料中...</p>
+          <p className="pixel-title">載入排行榜資料中...</p>
         </div>
       ) : (
         <>
@@ -163,7 +163,7 @@ export default function LeaderboardPage() {
                       <td style={{ fontWeight: 'bold', color: '#f8fafc' }}>{item.displayName}</td>
                       <td>{item.mode === 'quiz' ? '⚔️ 綜合' : '📝 申論'}</td>
                       <td style={{ fontWeight: 'bold', color: '#4ade80', fontSize: '1.05rem' }}>
-                        {item.score} / {item.maxScore}
+                        {item.score} 分
                       </td>
                       <td>
                         <span

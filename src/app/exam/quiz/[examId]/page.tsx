@@ -4,13 +4,13 @@ import { use, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { getFirestoreQuestions } from '@/lib/questionStore'
+import { getSystemSettings } from '@/lib/settingsStore'
 import { saveExamSession, ExamSessionAnswer } from '@/lib/examSession'
 import { submitExamFirestore } from '@/lib/examStore'
 import TimerBar from '@/components/TimerBar'
 import ConfirmModal from '@/components/ConfirmModal'
 import styles from './page.module.css'
 
-const TIME_PER_QUESTION = 300
 const IS_DEV = process.env.NODE_ENV === 'development'
 const DEV_MOCK_DISPLAY_NAME = '開發測試員'
 
@@ -25,7 +25,8 @@ export default function ExamPage({
 
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [timeLeft, setTimeLeft] = useState(IS_DEV ? 30 : TIME_PER_QUESTION)
+  const [timePerQuestion, setTimePerQuestion] = useState(300)
+  const [timeLeft, setTimeLeft] = useState(300)
   const [phase, setPhase] = useState<'exam' | 'saving'>('exam')
   const [expiredSet, setExpiredSet] = useState<Set<string>>(new Set())
   const [showExitConfirm, setShowExitConfirm] = useState(false)
@@ -44,6 +45,13 @@ export default function ExamPage({
 
   useEffect(() => {
     async function loadQuizQuestions() {
+      const sysSettings = await getSystemSettings()
+      const timeLimit = sysSettings.quizTimePerQuestion || 300
+      const countLimit = sysSettings.quizQuestionCount || 20
+      
+      setTimePerQuestion(timeLimit)
+      setTimeLeft(timeLimit)
+
       const allStored = await getFirestoreQuestions()
       
       // 1. 去除重複題目（以 Question ID 或 Content 做不重複唯一過濾）
@@ -65,8 +73,8 @@ export default function ExamPage({
         ;[uniqueQs[i], uniqueQs[j]] = [uniqueQs[j], uniqueQs[i]]
       }
 
-      // 限制最多 20 題
-      setQuestions(uniqueQs.slice(0, 20))
+      // 限制動態題數
+      setQuestions(uniqueQs.slice(0, countLimit))
     }
     loadQuizQuestions()
   }, [])
@@ -192,9 +200,9 @@ export default function ExamPage({
       setPhase('saving')
     } else {
       setCurrentIdx(nextIdx)
-      setTimeLeft(IS_DEV ? 30 : TIME_PER_QUESTION)
+      setTimeLeft(timePerQuestion)
     }
-  }, [timeLeft, phase, questions])
+  }, [timeLeft, phase, questions, timePerQuestion])
 
   // ── 手動作答提交 ────────────────────────────────────────────────
   function handleSubmitAnswer() {
@@ -205,7 +213,7 @@ export default function ExamPage({
       setPhase('saving')
     } else {
       setCurrentIdx(nextIdx)
-      setTimeLeft(IS_DEV ? 30 : TIME_PER_QUESTION)
+      setTimeLeft(timePerQuestion)
     }
   }
 
@@ -377,12 +385,9 @@ export default function ExamPage({
         <div className={styles.timerWrap}>
           <TimerBar
             timeLeft={timeLeft}
-            totalTime={IS_DEV ? 30 : TIME_PER_QUESTION}
+            totalTime={timePerQuestion}
             showLabel
           />
-          {IS_DEV && (
-            <p className={styles.devBadge}>⚠️ DEV MODE：每題 30 秒</p>
-          )}
         </div>
       </div>
     </main>
