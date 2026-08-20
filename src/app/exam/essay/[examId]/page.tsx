@@ -73,12 +73,9 @@ export default function EssayExamPage({
   const currentQ = questions[currentIdx]
   const displayName = userDoc?.displayName ?? (IS_DEV && !loading ? DEV_MOCK_DISPLAY_NAME : '')
 
-  // 檢查是否有合法的 lock（防止直接輸入網址進入）
+  // 開啟新申論考場
   useEffect(() => {
-    const lock = getEssayLock()
-    if (!lock && !IS_DEV) {
-      router.replace('/exam/essay/lobby')
-    }
+    // 考場初始化
   }, [examId, router])
 
   // ── phase === 'saving' 時儲存並導頁 ──────────────────────────

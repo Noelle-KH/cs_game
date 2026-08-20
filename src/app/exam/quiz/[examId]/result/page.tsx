@@ -1,3 +1,5 @@
+'use client'
+
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { loadExamSession, ExamSession } from '@/lib/examSession'
