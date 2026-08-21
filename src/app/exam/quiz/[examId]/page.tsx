@@ -25,8 +25,10 @@ export default function ExamPage({
 
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [timePerQuestion, setTimePerQuestion] = useState(300)
-  const [timeLeft, setTimeLeft] = useState(300)
+  const [choiceTime, setChoiceTime] = useState(120)
+  const [qaTime, setQaTime] = useState(300)
+  const [timeLeft, setTimeLeft] = useState(120)
+  const [isTimedOut, setIsTimedOut] = useState(false)
   const [phase, setPhase] = useState<'exam' | 'saving'>('exam')
   const [expiredSet, setExpiredSet] = useState<Set<string>>(new Set())
   const [showExitConfirm, setShowExitConfirm] = useState(false)
@@ -49,11 +51,12 @@ export default function ExamPage({
     async function loadQuizQuestions() {
       try {
         const sysSettings = await getSystemSettings()
-        const timeLimit = sysSettings.quizTimePerQuestion || 300
+        const cTime = sysSettings.choiceTimePerQuestion || 120
+        const qTime = sysSettings.qaTimePerQuestion || 300
         const countLimit = sysSettings.quizQuestionCount || 20
         
-        setTimePerQuestion(timeLimit)
-        setTimeLeft(timeLimit)
+        setChoiceTime(cTime)
+        setQaTime(qTime)
 
         const allStored = await getFirestoreQuestions()
         
@@ -76,8 +79,13 @@ export default function ExamPage({
           ;[uniqueQs[i], uniqueQs[j]] = [uniqueQs[j], uniqueQs[i]]
         }
 
-        // 限制動態題數
-        setQuestions(uniqueQs.slice(0, countLimit))
+        const selected = uniqueQs.slice(0, countLimit)
+        setQuestions(selected)
+
+        if (selected.length > 0) {
+          const initialTime = selected[0].type === 'choice' ? cTime : qTime
+          setTimeLeft(initialTime)
+        }
       } finally {
         setIsQuestionsLoaded(true)
       }
@@ -88,7 +96,16 @@ export default function ExamPage({
   const currentQ = questions[currentIdx]
   const displayName = userDoc?.displayName ?? (IS_DEV && !loading ? DEV_MOCK_DISPLAY_NAME : '')
 
-  // ── phase === 'saving' 時儲存並導頁（正確的 side-effect 位置）─
+  // ── 切換題目時重置時間與超時狀態 ─────────────────────────────
+  const resetTimerForIndex = (idx: number, qList = questions) => {
+    const q = qList[idx]
+    if (!q) return
+    const limit = q.type === 'choice' ? choiceTime : qaTime
+    setTimeLeft(limit)
+    setIsTimedOut(false)
+  }
+
+  // ── phase === 'saving' 時儲存並導頁 ────────────────────────────
   useEffect(() => {
     if (phase !== 'saving' || savedRef.current) return
     savedRef.current = true
@@ -175,7 +192,7 @@ export default function ExamPage({
 
   // ── 計時器：只做 setTimeLeft(-1)，不在 setter 內呼叫其他函式 ──
   useEffect(() => {
-    if (phase !== 'exam') return
+    if (phase !== 'exam' || isTimedOut) return
 
     timerRef.current = setInterval(() => {
       setTimeLeft((t) => Math.max(0, t - 1))
@@ -184,14 +201,15 @@ export default function ExamPage({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [currentIdx, phase])
+  }, [currentIdx, phase, isTimedOut])
 
-  // ── 超時偵測：獨立 effect，不在 setter 內做 side effect ────────
+  // ── 超時偵測：獨立 effect，暫停並標記超時，等待使用者手動切換 ─
   useEffect(() => {
-    if (phase !== 'exam' || timeLeft > 0) return
+    if (phase !== 'exam' || timeLeft > 0 || isTimedOut) return
 
     if (timerRef.current) clearInterval(timerRef.current)
 
+    setIsTimedOut(true)
     const expiredId = questions[currentIdxRef.current]?.id
     if (expiredId) {
       setExpiredSet((prev) => {
@@ -200,17 +218,9 @@ export default function ExamPage({
         return next
       })
     }
+  }, [timeLeft, phase, questions, isTimedOut])
 
-    const nextIdx = currentIdxRef.current + 1
-    if (nextIdx >= questions.length) {
-      setPhase('saving')
-    } else {
-      setCurrentIdx(nextIdx)
-      setTimeLeft(timePerQuestion)
-    }
-  }, [timeLeft, phase, questions, timePerQuestion])
-
-  // ── 手動作答提交 ────────────────────────────────────────────────
+  // ── 手動作答提交或切換至下一題 ──────────────────────────────────
   function handleSubmitAnswer() {
     if (timerRef.current) clearInterval(timerRef.current)
 
@@ -219,15 +229,17 @@ export default function ExamPage({
       setPhase('saving')
     } else {
       setCurrentIdx(nextIdx)
-      setTimeLeft(timePerQuestion)
+      resetTimerForIndex(nextIdx)
     }
   }
 
   function handleSelectChoice(optionKey: string) {
+    if (isTimedOut) return
     setAnswers((prev) => ({ ...prev, [currentQ.id]: optionKey }))
   }
 
   function handleQaInput(value: string) {
+    if (isTimedOut) return
     setAnswers((prev) => ({ ...prev, [currentQ.id]: value }))
   }
 
@@ -264,6 +276,14 @@ export default function ExamPage({
   const currentAnswer = answers[currentQ.id] ?? ''
   const hasAnswer = currentAnswer.trim().length > 0
   const isLastQuestion = currentIdx === questions.length - 1
+  const timeTotal = currentQ.type === 'choice' ? choiceTime : qaTime
+
+  // 固定 ABCD 順序
+  const choiceOptions = currentQ.options
+    ? ['A', 'B', 'C', 'D']
+        .filter((key) => currentQ.options[key] !== undefined)
+        .map((key) => [key, currentQ.options[key]] as [string, string])
+    : []
 
   return (
     <main className={`pixel-bg ${styles.main}`}>
@@ -323,15 +343,48 @@ export default function ExamPage({
       </div>
 
       <div className={`container ${styles.content}`}>
+        {/* 將計時條移至題目上方 */}
+        <div className={styles.timerWrap} style={{ marginBottom: 16 }}>
+          <TimerBar
+            timeLeft={timeLeft}
+            totalTime={timeTotal}
+            showLabel
+          />
+        </div>
+
+        {/* 超時提示 Banner */}
+        {isTimedOut && (
+          <div style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.2)',
+            border: '2px solid #ef4444',
+            borderRadius: 8,
+            padding: '12px 16px',
+            marginBottom: 16,
+            color: '#fca5a5',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <span>⏱️ <strong>本題作答時間已到！</strong> 系統已幫您標記超時，請點擊右下方按鈕繼續下一題。</span>
+            <button
+              className="btn-pixel btn-secondary"
+              style={{ padding: '4px 12px', fontSize: '0.85rem' }}
+              onClick={handleSubmitAnswer}
+            >
+              {isLastQuestion ? '🏁 結算考卷' : '前往下一題 →'}
+            </button>
+          </div>
+        )}
+
         <div className={styles.layout}>
           {/* 左欄：題目 */}
           <section className={`pixel-panel ${styles.questionPanel}`}>
-            {currentQ.context && (
-              <div className={styles.contextBox}>
-                <span className={styles.contextLabel}>📋 情境</span>
-                <p className={styles.contextText}>{currentQ.context}</p>
-              </div>
-            )}
+            <div className={styles.contextBox}>
+              <span className={styles.contextLabel}>📋 情境</span>
+              <p className={styles.contextText}>
+                {currentQ.context && currentQ.context.trim() ? currentQ.context : '不限情境作答'}
+              </p>
+            </div>
             <div className={styles.questionContent}>
               <p className={styles.questionText}>{currentQ.content}</p>
             </div>
@@ -343,14 +396,15 @@ export default function ExamPage({
               {currentQ.type === 'choice' ? '🎯 選擇答案' : '✏️ 填寫答案'}
             </h2>
 
-            {currentQ.type === 'choice' && currentQ.options ? (
+            {currentQ.type === 'choice' ? (
               <div className={styles.choiceList}>
-                {(Object.entries(currentQ.options) as [string, string][]).map(([key, text]) => (
+                {choiceOptions.map(([key, text]) => (
                   <button
                     key={key}
                     id={`btn-choice-${key}`}
                     className={`${styles.choiceBtn} ${currentAnswer === key ? styles.choiceSelected : ''}`}
                     onClick={() => handleSelectChoice(key)}
+                    disabled={isTimedOut}
                   >
                     <span className={styles.choiceKey}>{key}</span>
                     <span className={styles.choiceText}>{text}</span>
@@ -362,9 +416,10 @@ export default function ExamPage({
                 <textarea
                   id="textarea-qa"
                   className={styles.qaTextarea}
-                  placeholder="請輸入你的回答..."
+                  placeholder={isTimedOut ? '本題已超時，無法繼續編輯...' : '請輸入你的回答...'}
                   value={currentAnswer}
                   onChange={(e) => handleQaInput(e.target.value)}
+                  disabled={isTimedOut}
                   rows={8}
                 />
                 <div className={styles.qaWordCount}>
@@ -375,28 +430,19 @@ export default function ExamPage({
 
             <button
               id="btn-submit-answer"
-              className={`btn-pixel btn-primary ${styles.submitBtn} ${!hasAnswer ? styles.submitDisabled : ''}`}
+              className={`btn-pixel btn-primary ${styles.submitBtn} ${(!hasAnswer && !isTimedOut) ? styles.submitDisabled : ''}`}
               onClick={handleSubmitAnswer}
-              disabled={!hasAnswer}
+              disabled={!hasAnswer && !isTimedOut}
             >
               {isLastQuestion ? '🏁 完成作答' : '確認作答 →'}
             </button>
 
-            {!hasAnswer && (
+            {!hasAnswer && !isTimedOut && (
               <p className={styles.hintText}>
                 {currentQ.type === 'choice' ? '請選擇一個選項' : '請輸入至少一個字'}
               </p>
             )}
           </section>
-        </div>
-
-        {/* 底部 Timer */}
-        <div className={styles.timerWrap}>
-          <TimerBar
-            timeLeft={timeLeft}
-            totalTime={timePerQuestion}
-            showLabel
-          />
         </div>
       </div>
     </main>

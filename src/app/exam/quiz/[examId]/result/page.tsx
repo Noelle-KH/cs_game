@@ -27,30 +27,33 @@ export default function ResultPage({
     async function fetchResultData() {
       setLoadingResult(true)
       const settings = await getSystemSettings()
-      setPassThreshold(settings.passThreshold ?? 90)
+        const quizTh = settings.quizPassThreshold ?? settings.passThreshold ?? 90
+        setPassThreshold(quizTh)
 
-      // 1. 優先從 Firestore 讀取最新雲端考卷狀態與得分
-      const cloudExam = await getExamByIdFirestore(examId)
-      if (cloudExam) {
-        const choiceQs = cloudExam.answers.filter(a => a.questionDoc?.type === 'choice' || (!a.questionDoc && !a.questionId.includes('qa')))
-        const qaQs = cloudExam.answers.filter(a => a.questionDoc?.type === 'qa' || (!a.questionDoc && a.questionId.includes('qa')))
-        const correctChoice = choiceQs.filter(a => a.isCorrect === true).length
-        const qaScoreSum = cloudExam.essayScore ?? qaQs.reduce((sum, a) => sum + (a.score || 0), 0)
+        // 1. 優先從 Firestore 讀取最新雲端考卷狀態與得分
+        const cloudExam = await getExamByIdFirestore(examId)
+        if (cloudExam) {
+          const choiceQs = cloudExam.answers.filter(a => a.questionDoc?.type === 'choice' || (!a.questionDoc && !a.questionId.includes('qa')))
+          const qaQs = cloudExam.answers.filter(a => a.questionDoc?.type === 'qa' || (!a.questionDoc && a.questionId.includes('qa')))
+          const correctChoice = choiceQs.filter(a => a.isCorrect === true).length
+          const qaScoreSum = cloudExam.essayScore ?? qaQs.reduce((sum, a) => sum + (a.score || 0), 0)
+          const expiredCountVal = cloudExam.answers.filter(a => a.timeExpired === true).length
+          const isPassedDynamic = cloudExam.score >= quizTh
 
-        const fetchedSession: ExamSession = {
-          examId: cloudExam.id,
-          mode: cloudExam.mode as 'quiz',
-          displayName: cloudExam.displayName,
-          status: cloudExam.status,
-          score: cloudExam.score,
-          choiceScore: cloudExam.choiceScore ?? (cloudExam.score - qaScoreSum),
-          qaScore: qaScoreSum,
-          maxScore: 100,
-          passed: cloudExam.passed,
+          const fetchedSession: ExamSession = {
+            examId: cloudExam.id,
+            mode: cloudExam.mode as 'quiz',
+            displayName: cloudExam.displayName,
+            status: cloudExam.status,
+            score: cloudExam.score,
+            choiceScore: cloudExam.choiceScore ?? (cloudExam.score - qaScoreSum),
+            qaScore: qaScoreSum,
+            maxScore: 100,
+            passed: isPassedDynamic,
           correctCount: correctChoice,
           totalChoice: choiceQs.length,
           totalQa: qaQs.length,
-          expiredCount: 0,
+          expiredCount: expiredCountVal,
           answeredCount: cloudExam.answers.length,
           answers: cloudExam.answers.map(a => ({
             questionId: a.questionId,
@@ -58,7 +61,7 @@ export default function ResultPage({
             isCorrect: a.isCorrect,
             score: a.score,
             comment: a.feedback,
-            timeExpired: false,
+            timeExpired: !!a.timeExpired,
             questionDoc: a.questionDoc,
           })),
           submittedAt: cloudExam.submittedAt?.toISOString ? cloudExam.submittedAt.toISOString() : new Date().toISOString(),
@@ -141,7 +144,7 @@ export default function ResultPage({
           </div>
 
           {/* 統計數據 */}
-          <div className={styles.statsGrid}>
+          <div className={styles.statsGrid} style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
             <div className={styles.statItem}>
               <span className={styles.statIcon}>✅</span>
               <span className={`pixel-title ${styles.statValue} ${styles.colorGreen}`}>
@@ -164,14 +167,6 @@ export default function ResultPage({
                 {expiredCount}
               </span>
               <span className={styles.statLabel}>超時未答</span>
-              <span className={styles.statSub}>題</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statIcon}>📝</span>
-              <span className={`pixel-title ${styles.statValue} ${unansweredCount > 0 ? styles.colorRed : styles.colorGreen}`}>
-                {unansweredCount}
-              </span>
-              <span className={styles.statLabel}>略過未答</span>
               <span className={styles.statSub}>題</span>
             </div>
           </div>

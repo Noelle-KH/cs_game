@@ -323,11 +323,11 @@
 .gradingBox {
   background: rgba(244, 162, 74, 0.05);
   border: 2px solid rgba(244, 162, 74, 0.3);
-  padding: var(--space-5) var(--space-6);
-  margin-top: var(--space-5);
+  padding: var(--space-6) var(--space-6);
+  margin-top: 32px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-6);
   border-radius: 4px;
 }
 
@@ -361,6 +361,13 @@
   border: 2px solid var(--color-warm-orange);
   outline: none;
   border-radius: 4px;
+  -moz-appearance: textfield;
+}
+
+.scoreInput::-webkit-outer-spin-button,
+.scoreInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .scoreMax {

@@ -5,13 +5,17 @@ import Link from 'next/link'
 import styles from './users.module.css'
 import { getAllExamsFirestore, CloudExamDoc } from '@/lib/examStore'
 
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import { db } from '@/lib/firebase/client'
+
 interface ExamineeOverview {
   name: string
   email: string
   totalQuizExams: number
   totalEssayExams: number
   thisMonthEssayStatus: 'passed' | 'failed' | 'pending' | 'none'
-  highestScore: number
+  highestQuizScore: number
+  highestEssayScore: number
   lastActiveDate: string
 }
 
@@ -25,8 +29,36 @@ export default function AdminUsersOverviewPage() {
       const now = new Date()
       const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-      const allExams = await getAllExamsFirestore()
+      // 1. 讀取 Firestore `users` 集合中所有身分為考生的帳號
       const examineeMap = new Map<string, ExamineeOverview>()
+      try {
+        const usersRef = collection(db, 'users')
+        const usersSnap = await getDocs(usersRef)
+        usersSnap.forEach((uDoc) => {
+          const uData = uDoc.data()
+          // 若無 role 預設或 role === 'examinee'
+          if (!uData.role || uData.role === 'examinee') {
+            const uid = uDoc.id
+            const name = uData.displayName || '客服勇者'
+            const email = uData.email || ''
+            examineeMap.set(uid, {
+              name,
+              email,
+              totalQuizExams: 0,
+              totalEssayExams: 0,
+              thisMonthEssayStatus: 'none',
+              highestQuizScore: 0,
+              highestEssayScore: 0,
+              lastActiveDate: '尚未開始考試',
+            })
+          }
+        })
+      } catch (err) {
+        console.warn('Failed to fetch users from Firestore, fallback to exam records:', err)
+      }
+
+      // 2. 讀取 Firestore `exams` 考卷紀錄並 left-join 比對
+      const allExams = await getAllExamsFirestore()
 
       allExams.forEach((item: CloudExamDoc) => {
         const key = item.uid || item.userEmail || item.displayName
@@ -45,14 +77,17 @@ export default function AdminUsersOverviewPage() {
           totalQuizExams: 0,
           totalEssayExams: 0,
           thisMonthEssayStatus: 'none',
-          highestScore: 0,
+          highestQuizScore: 0,
+          highestEssayScore: 0,
           lastActiveDate: dateStr,
         }
 
         if (item.mode === 'quiz') {
           existing.totalQuizExams += 1
+          existing.highestQuizScore = Math.max(existing.highestQuizScore, item.score || 0)
         } else if (item.mode === 'essay') {
           existing.totalEssayExams += 1
+          existing.highestEssayScore = Math.max(existing.highestEssayScore, item.score || 0)
           
           // 檢查是否屬當月
           const examDate = item.submittedAt ? new Date(item.submittedAt) : new Date(item.startedAt)
@@ -73,8 +108,9 @@ export default function AdminUsersOverviewPage() {
           }
         }
 
-        existing.highestScore = Math.max(existing.highestScore, item.score || 0)
-        existing.lastActiveDate = dateStr
+        if (existing.lastActiveDate === '尚未開始考試' || dateStr !== '未知') {
+          existing.lastActiveDate = dateStr
+        }
         examineeMap.set(key, existing)
       })
 
@@ -155,7 +191,8 @@ export default function AdminUsersOverviewPage() {
               <th style={{ textAlign: 'center' }}>綜合刷題次數</th>
               <th style={{ textAlign: 'center' }}>申論考核次數</th>
               <th style={{ textAlign: 'center' }}>本月申論狀態</th>
-              <th style={{ textAlign: 'center' }}>最高得分紀錄</th>
+              <th style={{ textAlign: 'center' }}>綜合最高分</th>
+              <th style={{ textAlign: 'center' }}>申論最高分</th>
               <th>最近活動時間</th>
             </tr>
           </thead>
@@ -185,8 +222,11 @@ export default function AdminUsersOverviewPage() {
                     <span className={styles.badgeNone}>⚠️ 本月未提交</span>
                   )}
                 </td>
-                <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#4ade80' }}>
-                  {u.highestScore > 0 ? `${u.highestScore} 分` : '—'}
+                <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#38bdf8' }}>
+                  {u.highestQuizScore > 0 ? `${u.highestQuizScore} 分` : '—'}
+                </td>
+                <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#f0abfc' }}>
+                  {u.highestEssayScore > 0 ? `${u.highestEssayScore} 分` : '—'}
                 </td>
                 <td style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
                   {u.lastActiveDate}

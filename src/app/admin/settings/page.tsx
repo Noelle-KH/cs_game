@@ -21,10 +21,12 @@ export default function AdminSettingsPage() {
   const [newSupervisorEmailInput, setNewSupervisorEmailInput] = useState('')
   
   // 系統參數 state
-  const [passThreshold, setPassThreshold] = useState(90)
+  const [quizPassThreshold, setQuizPassThreshold] = useState(90)
+  const [essayPassThreshold, setEssayPassThreshold] = useState(90)
   const [quizQuestionCount, setQuizQuestionCount] = useState(20)
   const [essayQuestionCount, setEssayQuestionCount] = useState(10)
-  const [quizTimePerQuestion, setQuizTimePerQuestion] = useState(300)
+  const [choiceTimePerQuestion, setChoiceTimePerQuestion] = useState(120)
+  const [qaTimePerQuestion, setQaTimePerQuestion] = useState(300)
   const [essayTimePerQuestion, setEssayTimePerQuestion] = useState(600)
 
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -55,10 +57,12 @@ export default function AdminSettingsPage() {
     // 載入雲端/本地系統參數設定
     async function loadSettings() {
       const s = await getSystemSettings()
-      setPassThreshold(s.passThreshold ?? 90)
+      setQuizPassThreshold(s.quizPassThreshold ?? 90)
+      setEssayPassThreshold(s.essayPassThreshold ?? 90)
       setQuizQuestionCount(s.quizQuestionCount ?? 20)
       setEssayQuestionCount(s.essayQuestionCount ?? 10)
-      setQuizTimePerQuestion(s.quizTimePerQuestion ?? 300)
+      setChoiceTimePerQuestion(s.choiceTimePerQuestion ?? 120)
+      setQaTimePerQuestion(s.qaTimePerQuestion ?? 300)
       setEssayTimePerQuestion(s.essayTimePerQuestion ?? 600)
     }
     loadSettings()
@@ -130,10 +134,13 @@ export default function AdminSettingsPage() {
 
   const handleSaveSettings = async () => {
     await saveSystemSettings({
-      passThreshold,
+      quizPassThreshold,
+      essayPassThreshold,
+      passThreshold: quizPassThreshold,
       quizQuestionCount,
       essayQuestionCount,
-      quizTimePerQuestion,
+      choiceTimePerQuestion,
+      qaTimePerQuestion,
       essayTimePerQuestion,
     })
     showToast('💾 系統參數與管理員名單設定儲存成功！')
@@ -312,13 +319,25 @@ export default function AdminSettingsPage() {
 
           <div className={styles.formGrid}>
             <div className={styles.formItem}>
-              <label className={styles.label}>🏆 考核合格門檻分數 (0-100 分)：</label>
+              <label className={styles.label}>🏆 綜合模式合格門檻分數 (0-100 分)：</label>
               <input
                 type="number"
                 min={50}
                 max={100}
-                value={passThreshold}
-                onChange={(e) => setPassThreshold(parseInt(e.target.value) || 90)}
+                value={quizPassThreshold}
+                onChange={(e) => setQuizPassThreshold(parseInt(e.target.value) || 90)}
+                className={styles.numInput}
+              />
+            </div>
+
+            <div className={styles.formItem}>
+              <label className={styles.label}>🏆 申論模式合格門檻分數 (0-100 分)：</label>
+              <input
+                type="number"
+                min={50}
+                max={100}
+                value={essayPassThreshold}
+                onChange={(e) => setEssayPassThreshold(parseInt(e.target.value) || 90)}
                 className={styles.numInput}
               />
             </div>
@@ -348,13 +367,25 @@ export default function AdminSettingsPage() {
             </div>
 
             <div className={styles.formItem}>
-              <label className={styles.label}>⏱️ 綜合模式單題限時 (秒)：</label>
+              <label className={styles.label}>⏱️ 選擇題單題限時 (秒)：</label>
               <input
                 type="number"
                 min={30}
                 max={600}
-                value={quizTimePerQuestion}
-                onChange={(e) => setQuizTimePerQuestion(parseInt(e.target.value) || 300)}
+                value={choiceTimePerQuestion}
+                onChange={(e) => setChoiceTimePerQuestion(parseInt(e.target.value) || 120)}
+                className={styles.numInput}
+              />
+            </div>
+
+            <div className={styles.formItem}>
+              <label className={styles.label}>⏱️ 問答題單題限時 (秒)：</label>
+              <input
+                type="number"
+                min={30}
+                max={1200}
+                value={qaTimePerQuestion}
+                onChange={(e) => setQaTimePerQuestion(parseInt(e.target.value) || 300)}
                 className={styles.numInput}
               />
             </div>

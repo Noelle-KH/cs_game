@@ -5,18 +5,29 @@ import Link from 'next/link'
 import styles from './results.module.css'
 import { useAuth } from '@/contexts/AuthContext'
 import { getUserExamsFirestore, CloudExamDoc } from '@/lib/examStore'
+import { getSystemSettings } from '@/lib/settingsStore'
 
 export default function ProfileResultsPage() {
   const { user, userDoc } = useAuth()
   const [historyList, setHistoryList] = useState<CloudExamDoc[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
+  const [sysSettings, setSysSettings] = useState({ quizPassThreshold: 90, essayPassThreshold: 90 })
 
   useEffect(() => {
     async function loadCloudHistory() {
       if (user?.uid) {
         setLoadingHistory(true)
+        const settings = await getSystemSettings()
+        const qTh = settings.quizPassThreshold ?? settings.passThreshold ?? 90
+        const eTh = settings.essayPassThreshold ?? settings.passThreshold ?? 90
+        setSysSettings({ quizPassThreshold: qTh, essayPassThreshold: eTh })
+
         const cloudExams = await getUserExamsFirestore(user.uid)
-        setHistoryList(cloudExams)
+        const updatedExams = cloudExams.map((e) => ({
+          ...e,
+          passed: e.score >= (e.mode === 'quiz' ? qTh : eTh),
+        }))
+        setHistoryList(updatedExams)
         setLoadingHistory(false)
       } else {
         setLoadingHistory(false)

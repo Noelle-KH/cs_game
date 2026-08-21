@@ -50,6 +50,7 @@
   line-height: 1.7;
   color: #cbd5e1;
   margin-bottom: 1.5rem;
+  white-space: pre-line;
 }
 
 .actions {

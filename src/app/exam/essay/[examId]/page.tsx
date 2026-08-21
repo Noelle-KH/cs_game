@@ -30,6 +30,7 @@ export default function EssayExamPage({
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [timePerQuestion, setTimePerQuestion] = useState(600)
   const [timeLeft, setTimeLeft] = useState(600)
+  const [isTimedOut, setIsTimedOut] = useState(false)
   const [phase, setPhase] = useState<'exam' | 'saving'>('exam')
   const [expiredSet, setExpiredSet] = useState<Set<string>>(new Set())
   const [showExitConfirm, setShowExitConfirm] = useState(false)
@@ -58,11 +59,26 @@ export default function EssayExamPage({
         setTimeLeft(timeLimit)
 
         const allStored = await getFirestoreQuestions()
-        const validQs = allStored.filter(q => q.enabled && q.type === 'essay')
-        // Fisher-Yates 隨機洗牌
-        const shuffled = [...validQs].sort(() => Math.random() - 0.5)
-        // 限制動態題數
-        setQuestions(shuffled.slice(0, countLimit))
+        
+        // 去除重複題目
+        const uniqueMap = new Map<string, any>()
+        allStored.forEach((q) => {
+          if (q.enabled && q.type === 'essay') {
+            const key = q.id || q.content.trim()
+            if (!uniqueMap.has(key)) {
+              uniqueMap.set(key, q)
+            }
+          }
+        })
+        const validQs = Array.from(uniqueMap.values())
+
+        // Fisher-Yates 嚴謹隨機洗牌
+        for (let i = validQs.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[validQs[i], validQs[j]] = [validQs[j], validQs[i]]
+        }
+
+        setQuestions(validQs.slice(0, countLimit))
       } finally {
         setIsQuestionsLoaded(true)
       }
@@ -73,22 +89,19 @@ export default function EssayExamPage({
   const currentQ = questions[currentIdx]
   const displayName = userDoc?.displayName ?? (IS_DEV && !loading ? DEV_MOCK_DISPLAY_NAME : '')
 
-  // 開啟新申論考場
-  useEffect(() => {
-    // 考場初始化
-  }, [examId, router])
-
   // ── phase === 'saving' 時儲存並導頁 ──────────────────────────
   useEffect(() => {
     if (phase !== 'saving' || savedRef.current) return
     savedRef.current = true
 
     const finalAnswers = answersRef.current
+    const finalExpired = expiredSetRef.current
 
     async function handleCloudSubmit() {
       const cloudAnswers = questions.map((q) => ({
         questionId: q.id,
         userAnswer: finalAnswers[q.id] ?? '',
+        timeExpired: finalExpired.has(q.id),
         questionDoc: q,
       }))
 
@@ -115,7 +128,7 @@ export default function EssayExamPage({
 
   // ── 計時器 ────────────────────────────────────────────────────
   useEffect(() => {
-    if (phase !== 'exam') return
+    if (phase !== 'exam' || isTimedOut) return
 
     timerRef.current = setInterval(() => {
       setTimeLeft((t) => Math.max(0, t - 1))
@@ -124,14 +137,15 @@ export default function EssayExamPage({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [currentIdx, phase])
+  }, [currentIdx, phase, isTimedOut])
 
   // ── 超時偵測 ──────────────────────────────────────────────────
   useEffect(() => {
-    if (phase !== 'exam' || timeLeft > 0) return
+    if (phase !== 'exam' || timeLeft > 0 || isTimedOut) return
 
     if (timerRef.current) clearInterval(timerRef.current)
 
+    setIsTimedOut(true)
     const expiredId = questions[currentIdxRef.current]?.id
     if (expiredId) {
       setExpiredSet((prev) => {
@@ -140,15 +154,7 @@ export default function EssayExamPage({
         return next
       })
     }
-
-    const nextIdx = currentIdxRef.current + 1
-    if (nextIdx >= questions.length) {
-      setPhase('saving')
-    } else {
-      setCurrentIdx(nextIdx)
-      setTimeLeft(timePerQuestion)
-    }
-  }, [timeLeft, phase, questions, timePerQuestion])
+  }, [timeLeft, phase, questions, isTimedOut])
 
   // ── 手動作答提交 ──────────────────────────────────────────────
   function handleSubmitAnswer() {
@@ -160,10 +166,12 @@ export default function EssayExamPage({
     } else {
       setCurrentIdx(nextIdx)
       setTimeLeft(timePerQuestion)
+      setIsTimedOut(false)
     }
   }
 
   function handleAnswerInput(value: string) {
+    if (isTimedOut) return
     setAnswers((prev) => ({ ...prev, [currentQ.id]: value }))
   }
 
@@ -259,14 +267,47 @@ export default function EssayExamPage({
       </div>
 
       <div className={`container ${styles.content}`}>
+        {/* 將計時條移至題目上方 */}
+        <div className={styles.timerWrap} style={{ marginBottom: 16 }}>
+          <TimerBar
+            timeLeft={timeLeft}
+            totalTime={timeTotal}
+            showLabel
+          />
+        </div>
+
+        {/* 超時提示 Banner */}
+        {isTimedOut && (
+          <div style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.2)',
+            border: '2px solid #ef4444',
+            borderRadius: 8,
+            padding: '12px 16px',
+            marginBottom: 16,
+            color: '#fca5a5',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <span>⏱️ <strong>本題作答時間已到！</strong> 系統已幫您標記超時，請點擊右下方按鈕繼續下一題。</span>
+            <button
+              className="btn-pixel btn-secondary"
+              style={{ padding: '4px 12px', fontSize: '0.85rem' }}
+              onClick={handleSubmitAnswer}
+            >
+              {isLastQuestion ? '📨 提交考卷' : '前往下一題 →'}
+            </button>
+          </div>
+        )}
+
         {/* 題目區塊 */}
         <section className={`pixel-panel ${styles.questionPanel}`}>
-          {currentQ.context && (
-            <div className={styles.contextBox}>
-              <span className={styles.contextLabel}>📋 情境</span>
-              <p className={styles.contextText}>{currentQ.context}</p>
-            </div>
-          )}
+          <div className={styles.contextBox}>
+            <span className={styles.contextLabel}>📋 情境</span>
+            <p className={styles.contextText}>
+              {currentQ.context && currentQ.context.trim() ? currentQ.context : '不限情境作答'}
+            </p>
+          </div>
           <div className={styles.questionContent}>
             <p className={styles.questionText}>{currentQ.content}</p>
           </div>
@@ -286,19 +327,20 @@ export default function EssayExamPage({
             <textarea
               id="textarea-essay"
               className={styles.essayTextarea}
-              placeholder="請輸入你的申論內容。建議包含：情況分析、處理步驟、溝通技巧與注意事項…"
+              placeholder={isTimedOut ? '本題已超時，無法繼續編輯...' : '請輸入你的申論內容。建議包含：情況分析、處理步驟、溝通技巧與注意事項…'}
               value={currentAnswer}
               onChange={(e) => handleAnswerInput(e.target.value)}
+              disabled={isTimedOut}
               rows={10}
             />
             <div className={styles.wordCountBar}>
               <span className={`${styles.wordCount} ${wordCount < 50 ? styles.wordCountLow : styles.wordCountOk}`}>
                 {wordCount} 字
               </span>
-              {wordCount < 50 && wordCount > 0 && (
+              {wordCount < 50 && wordCount > 0 && !isTimedOut && (
                 <span className={styles.wordHint}>建議至少 50 字以獲得更好評分</span>
               )}
-              {wordCount === 0 && (
+              {wordCount === 0 && !isTimedOut && (
                 <span className={styles.wordHint}>請輸入至少一個字後才能提交</span>
               )}
             </div>
@@ -306,9 +348,9 @@ export default function EssayExamPage({
 
           <button
             id="btn-submit-answer"
-            className={`btn-pixel btn-secondary ${styles.submitBtn} ${!hasAnswer ? styles.submitDisabled : ''}`}
+            className={`btn-pixel btn-secondary ${styles.submitBtn} ${(!hasAnswer && !isTimedOut) ? styles.submitDisabled : ''}`}
             onClick={handleSubmitAnswer}
-            disabled={!hasAnswer}
+            disabled={!hasAnswer && !isTimedOut}
           >
             {isLastQuestion ? '📨 完成作答並提交' : '確認作答 →'}
           </button>
@@ -319,15 +361,6 @@ export default function EssayExamPage({
               : '作答後點擊確認，計時器將重置至下一題'}
           </p>
         </section>
-
-        {/* 計時器 */}
-        <div className={styles.timerWrap}>
-          <TimerBar
-            timeLeft={timeLeft}
-            totalTime={timePerQuestion}
-            showLabel
-          />
-        </div>
       </div>
     </main>
   )

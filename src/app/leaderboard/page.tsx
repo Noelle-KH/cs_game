@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import styles from './leaderboard.module.css'
 import { getQuizLeaderboard, getEssayLeaderboard, ExamHistoryItem } from '@/lib/historyStore'
+import { getSystemSettings } from '@/lib/settingsStore'
 
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase/client'
@@ -33,12 +34,17 @@ export default function LeaderboardPage() {
           })
         })
 
-        // 按最高分排序去重或直接取分高者
+        const settings = await getSystemSettings()
+        const quizTh = settings.quizPassThreshold ?? settings.passThreshold ?? 90
+        const essayTh = settings.essayPassThreshold ?? settings.passThreshold ?? 90
+
         const quizSorted = allExams
           .filter((e) => e.mode === 'quiz')
+          .map((e) => ({ ...e, passed: e.score >= quizTh }))
           .sort((a, b) => b.score - a.score)
         const essaySorted = allExams
           .filter((e) => e.mode === 'essay')
+          .map((e) => ({ ...e, passed: e.score >= essayTh }))
           .sort((a, b) => b.score - a.score)
 
         setQuizList(quizSorted)

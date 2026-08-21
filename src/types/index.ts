@@ -73,9 +73,13 @@ export interface NotificationDoc {
 export interface SettingsDoc {
   sheetsIdQuestions: string
   sheetsIdResults: string
-  passThreshold: number           // 90
+  passThreshold: number           // 預留相容 90
+  quizPassThreshold: number       // 綜合模式門檻（預設 90 分）
+  essayPassThreshold: number      // 申論模式門檻（預設 90 分）
   quizQuestionCount: number       // 20
   essayQuestionCount: number      // 10
-  quizTimePerQuestion: number     // 300 秒
-  essayTimePerQuestion: number    // 600 秒
+  quizTimePerQuestion: number     // 預留相容
+  choiceTimePerQuestion: number   // 選擇題單題限時（預設 120 秒）
+  qaTimePerQuestion: number       // 問答題單題限時（預設 300 秒）
+  essayTimePerQuestion: number    // 申論題單題限時（預設 600 秒）
 }

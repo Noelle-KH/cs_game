@@ -25,9 +25,13 @@ export default function QuizLobbyPage() {
     sheetsIdQuestions: '',
     sheetsIdResults: '',
     passThreshold: 90,
+    quizPassThreshold: 90,
+    essayPassThreshold: 90,
     quizQuestionCount: 20,
     essayQuestionCount: 10,
     quizTimePerQuestion: 300,
+    choiceTimePerQuestion: 120,
+    qaTimePerQuestion: 300,
     essayTimePerQuestion: 600,
   })
 
@@ -83,7 +87,7 @@ export default function QuizLobbyPage() {
 
   const dynamicQuizRules = [
     { icon: '📋', label: '題型', value: `選擇題 + 問答題混合，共 ${sysSettings.quizQuestionCount} 題` },
-    { icon: '⏱️', label: '計時', value: `每題 ${formatTimeText(sysSettings.quizTimePerQuestion)} 倒數，超時自動交卷` },
+    { icon: '⏱️', label: '計時', value: `選擇題每題 ${formatTimeText(sysSettings.choiceTimePerQuestion || 120)} / 問答題每題 ${formatTimeText(sysSettings.qaTimePerQuestion || 300)}，倒數計時` },
     { icon: '🎯', label: '通過門檻', value: `${sysSettings.passThreshold} 分（含）以上` },
     { icon: '📊', label: '計分方式', value: `每題 ${Math.round(100 / (sysSettings.quizQuestionCount || 20))} 分，共 100 分` },
     { icon: '🔁', label: '重複作答', value: '可無限刷題，排行榜取最高分' },

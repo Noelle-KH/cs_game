@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { clearEssayLock } from '@/lib/examSession'
 import { getExamByIdFirestore, CloudExamDoc } from '@/lib/examStore'
+import { getSystemSettings } from '@/lib/settingsStore'
 import styles from './page.module.css'
 
 const IS_DEV = process.env.NODE_ENV === 'development'
@@ -18,12 +19,21 @@ export default function EssayResultPage({
   const [exam, setExam] = useState<CloudExamDoc | null>(null)
   const [showContent, setShowContent] = useState(false)
 
+  const [passThreshold, setPassThreshold] = useState(90)
+
   useEffect(() => {
     async function loadCloudExam() {
+      const settings = await getSystemSettings()
+      const essayTh = settings.essayPassThreshold ?? settings.passThreshold ?? 90
+      setPassThreshold(essayTh)
+
       const data = await getExamByIdFirestore(examId)
       if (!data && !IS_DEV) {
         router.replace('/exam/essay/lobby')
         return
+      }
+      if (data) {
+        data.passed = data.score >= essayTh
       }
       setExam(data)
       setShowContent(true)
@@ -48,8 +58,8 @@ export default function EssayResultPage({
   const answeredCount = exam.answers.filter(
     (a) => a.userAnswer.trim().length > 0
   ).length
-  const expiredCount = exam.answers.filter((a) => !a.userAnswer.trim()).length
-  const skippedCount = exam.answers.length - answeredCount
+  const expiredCount = exam.answers.filter((a) => a.timeExpired === true).length
+  const unansweredCount = exam.answers.length - answeredCount
 
   return (
     <main className={`pixel-bg ${styles.main}`}>
@@ -72,8 +82,8 @@ export default function EssayResultPage({
                 </p>
                 <p className={styles.bannerSub}>
                   {exam.passed
-                    ? '恭喜通過本月申論考核！請於下方查看主管針對各題給予的指導評語。'
-                    : '本月申論分數未達 90 分通過門檻，請仔細檢視主管評語與改進建議。'}
+                    ? `恭喜通過本月申論考核！請於下方查看主管針對各題給予的指導評語。`
+                    : `本月申論分數未達 ${passThreshold} 分通過門檻（距通過門檻還差 ${passThreshold - (exam.score || 0)} 分），請仔細檢視主管評語與改進建議。`}
                 </p>
               </div>
             </div>
@@ -101,7 +111,7 @@ export default function EssayResultPage({
           </div>
 
           {/* 統計摘要 */}
-          <div className={styles.statsGrid}>
+          <div className={styles.statsGrid} style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
             <div className={styles.statItem}>
               <span className={styles.statIcon}>✅</span>
               <span className={`pixel-title ${styles.statValue} ${styles.colorGreen}`}>
@@ -115,15 +125,7 @@ export default function EssayResultPage({
               <span className={`pixel-title ${styles.statValue} ${expiredCount > 0 ? styles.colorRed : styles.colorGreen}`}>
                 {expiredCount}
               </span>
-              <span className={styles.statLabel}>超時略過</span>
-              <span className={styles.statSub}>題</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statIcon}>📝</span>
-              <span className={`pixel-title ${styles.statValue} ${skippedCount > 0 ? styles.colorOrange : styles.colorGreen}`}>
-                {skippedCount}
-              </span>
-              <span className={styles.statLabel}>未作答</span>
+              <span className={styles.statLabel}>超時未答</span>
               <span className={styles.statSub}>題</span>
             </div>
           </div>

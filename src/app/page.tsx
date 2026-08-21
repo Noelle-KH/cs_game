@@ -20,9 +20,13 @@ export default function HomePage() {
     sheetsIdQuestions: '',
     sheetsIdResults: '',
     passThreshold: 90,
+    quizPassThreshold: 90,
+    essayPassThreshold: 90,
     quizQuestionCount: 20,
     essayQuestionCount: 10,
     quizTimePerQuestion: 300,
+    choiceTimePerQuestion: 120,
+    qaTimePerQuestion: 300,
     essayTimePerQuestion: 600,
   })
 
@@ -178,7 +182,7 @@ export default function HomePage() {
                 <h3 className={`pixel-title ${styles.modeName}`}>綜合模式</h3>
                 <p className={styles.modeDesc}>
                   選擇題 + 問答題混合出題<br />
-                  {sysSettings.quizQuestionCount} 題 · 每題 {formatTimeText(sysSettings.quizTimePerQuestion)} · 選擇自動/問答人工審核
+                  {sysSettings.quizQuestionCount} 題 · 選擇每題 {formatTimeText(sysSettings.choiceTimePerQuestion || 120)} / 問答每題 {formatTimeText(sysSettings.qaTimePerQuestion || 300)}
                 </p>
                 <ul className={styles.modeFeatures}>
                   <li>✅ 交卷即試算選擇題得分，問答題由主管審核</li>

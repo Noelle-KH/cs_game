@@ -21,6 +21,7 @@ export interface CloudExamAnswer {
   isCorrect?: boolean
   score?: number
   feedback?: string
+  timeExpired?: boolean
   questionDoc?: QuestionDoc
 }
 
@@ -125,6 +126,7 @@ export async function submitExamFirestore(params: {
     if (a.isCorrect !== undefined) cleanObj.isCorrect = a.isCorrect
     if (a.score !== undefined) cleanObj.score = a.score
     if (a.feedback !== undefined) cleanObj.feedback = a.feedback
+    if (a.timeExpired !== undefined) cleanObj.timeExpired = a.timeExpired
     if (a.questionDoc !== undefined) {
       // 確保 questionDoc 內沒有 undefined 欄位
       const cleanDoc: Record<string, any> = {}
@@ -170,6 +172,7 @@ export async function gradeExamFirestore(params: {
     if (a.isCorrect !== undefined) cleanObj.isCorrect = a.isCorrect
     if (a.score !== undefined) cleanObj.score = a.score
     if (a.feedback !== undefined) cleanObj.feedback = a.feedback
+    if (a.timeExpired !== undefined) cleanObj.timeExpired = a.timeExpired
     if (a.questionDoc !== undefined) {
       const cleanDoc: Record<string, any> = {}
       Object.entries(a.questionDoc).forEach(([k, v]) => {

@@ -18,6 +18,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { getPendingExamsFirestore, gradeExamFirestore, getUserExamsFirestore, CloudExamDoc } from '@/lib/examStore'
 import { addHistoryRecord } from '@/lib/historyStore'
+import { getSystemSettings } from '@/lib/settingsStore'
+
+import ConfirmModal from '@/components/ConfirmModal'
 
 // 定義通用後台考卷型別（包含申論與綜合模式）
 export interface PendingExamItem {
@@ -51,6 +54,7 @@ export default function AdminGradePage() {
   const [loadingPending, setLoadingPending] = useState(true)
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null)
   const [filterMode, setFilterMode] = useState<'all' | 'quiz' | 'essay'>('all')
+  const [passThresholds, setPassThresholds] = useState({ quiz: 90, essay: 90 })
   
   // 正在批改的分數與評語暫存 state (key: questionId)
   const [gradingScores, setGradingScores] = useState<Record<string, number>>({})
@@ -94,6 +98,14 @@ export default function AdminGradePage() {
 
   useEffect(() => {
     fetchPendingExams()
+    async function loadSettings() {
+      const s = await getSystemSettings()
+      setPassThresholds({
+        quiz: s.quizPassThreshold ?? s.passThreshold ?? 90,
+        essay: s.essayPassThreshold ?? s.passThreshold ?? 90,
+      })
+    }
+    loadSettings()
   }, [])
 
   // 篩選考卷
@@ -124,9 +136,47 @@ export default function AdminGradePage() {
     setGradingComments(prev => ({ ...prev, [qId]: text }))
   }
 
+  const [isSubmittingGrade, setIsSubmittingGrade] = useState(false)
+  const [showGradeConfirmModal, setShowGradeConfirmModal] = useState(false)
+  const [pendingTotalScore, setPendingTotalScore] = useState(0)
+
+
+  const [showWarningModal, setShowWarningModal] = useState(false)
+  const [warningMessage, setWarningMessage] = useState('')
+
+  const handleOpenGradeConfirm = () => {
+    if (!currentExam) return
+
+    // 1. 檢查評語防呆：問答題/申論題若未填評語阻擋送出
+    const targetAnswers = currentExam.answers.filter(
+      a => currentExam.mode === 'essay' || a.questionDoc?.type === 'qa' || (!a.questionDoc && a.questionId.includes('qa'))
+    )
+
+    for (let i = 0; i < targetAnswers.length; i++) {
+      const qId = targetAnswers[i].questionId
+      const cText = (gradingComments[qId] ?? '').trim()
+      if (!cText) {
+        setWarningMessage(`⚠️ 評語填寫不完整！\n\n第 ${i + 1} 題（ID: ${qId}）尚未填寫評語與指導建議。\n為維護考核品質，請補齊所有題目評語後再送出批改！`)
+        setShowWarningModal(true)
+        return
+      }
+    }
+
+    // 2. 計算試算總分
+    let essaySum = 0
+    targetAnswers.forEach(ans => {
+      essaySum += gradingScores[ans.questionId] || 0
+    })
+
+    const calculatedTotal = (currentExam.choiceScore || 0) + essaySum
+    setPendingTotalScore(calculatedTotal)
+    setShowGradeConfirmModal(true)
+  }
 
   const handleSubmitGrading = async () => {
-    if (!currentExam) return
+    if (!currentExam || isSubmittingGrade) return
+    setIsSubmittingGrade(true)
+    setShowGradeConfirmModal(false)
 
     let essayScoreSum = 0
     const updatedAnswers = currentExam.answers.map((ans) => {
@@ -183,6 +233,8 @@ export default function AdminGradePage() {
     } catch (e: any) {
       console.error('Failed to submit grade to Firestore:', e)
       alert(`⚠️ 批改失敗：${e?.message || '請確認網路連線'}`)
+    } finally {
+      setIsSubmittingGrade(false)
     }
   }
 
@@ -294,9 +346,10 @@ export default function AdminGradePage() {
                 </div>
                 <button
                   className="btn-pixel btn-primary"
-                  onClick={handleSubmitGrading}
+                  onClick={handleOpenGradeConfirm}
+                  disabled={isSubmittingGrade}
                 >
-                  💾 {currentExam.status === 'submitted' ? '送出評分與評語' : '更新評分資料'}
+                  {isSubmittingGrade ? '🚀 批改儲存中...' : currentExam.status === 'submitted' ? '💾 送出評分與評語' : '💾 更新評分資料'}
                 </button>
               </div>
 
@@ -363,7 +416,15 @@ export default function AdminGradePage() {
                               min={0}
                               max={maxScorePerQ}
                               value={score}
-                              onChange={(e) => handleScoreChange(ans.questionId, parseInt(e.target.value) || 0)}
+                              onChange={(e) => {
+                                const raw = parseInt(e.target.value)
+                                handleScoreChange(ans.questionId, isNaN(raw) ? 0 : raw)
+                              }}
+                              onBlur={(e) => {
+                                const val = parseInt(e.target.value)
+                                const clamped = isNaN(val) ? 0 : Math.max(0, Math.min(maxScorePerQ, val))
+                                handleScoreChange(ans.questionId, clamped)
+                              }}
                               className={styles.scoreInput}
                             />
                             <span className={styles.scoreMax}>/ {maxScorePerQ} 分</span>
@@ -392,11 +453,41 @@ export default function AdminGradePage() {
               <div className={styles.panelFooter}>
                 <button
                   className="btn-pixel btn-primary"
-                  onClick={handleSubmitGrading}
+                  onClick={handleOpenGradeConfirm}
+                  disabled={isSubmittingGrade}
                 >
-                  🚀 確認完成批改並寫入成績
+                  {isSubmittingGrade ? '🚀 批改儲存中...' : '🚀 確認完成批改並寫入成績'}
                 </button>
               </div>
+
+              {/* 批改二次確認彈窗 */}
+              <ConfirmModal
+                isOpen={showGradeConfirmModal}
+                title="📋 確認送出主管批改評分"
+                message={`確定要送出對【${currentExam.displayName}】的考卷評分嗎？
+
+• 模式：${currentExam.mode === 'quiz' ? '綜合模式' : '申論模式'}
+• 選擇題得分：${currentExam.choiceScore || 0} 分
+• 問答/申論評分：${pendingTotalScore - (currentExam.choiceScore || 0)} 分
+• 試算最終總得分：${pendingTotalScore} 分 (${pendingTotalScore >= (currentExam.mode === 'quiz' ? passThresholds.quiz : passThresholds.essay) ? '✅ 合格通過' : `❌ 未達 ${currentExam.mode === 'quiz' ? passThresholds.quiz : passThresholds.essay} 分門檻`})
+
+送出後成績將即時更新至雲端與 Google Sheets。`}
+                confirmText="🚀 確認送出批改"
+                cancelText="✏️ 返回繼續檢查"
+                onConfirm={handleSubmitGrading}
+                onCancel={() => setShowGradeConfirmModal(false)}
+              />
+
+              {/* 評言未填寫防呆提醒彈窗 */}
+              <ConfirmModal
+                isOpen={showWarningModal}
+                title="⚠️ 評語未填寫完整"
+                message={warningMessage}
+                confirmText="✏️ 我知道了，前往補齊"
+                cancelText="關閉"
+                onConfirm={() => setShowWarningModal(false)}
+                onCancel={() => setShowWarningModal(false)}
+              />
             </div>
           )}
         </section>

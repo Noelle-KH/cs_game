@@ -9,9 +9,13 @@ const DEFAULT_SETTINGS: SettingsDoc = {
   sheetsIdQuestions: '',
   sheetsIdResults: '',
   passThreshold: 90,
+  quizPassThreshold: 90,
+  essayPassThreshold: 90,
   quizQuestionCount: 20,
   essayQuestionCount: 10,
   quizTimePerQuestion: 300,
+  choiceTimePerQuestion: 120,
+  qaTimePerQuestion: 300,
   essayTimePerQuestion: 600,
 }
 
