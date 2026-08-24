@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import styles from './settings.module.css'
 
-import { getDocs, collection } from 'firebase/firestore'
+import { getDocs, collection, query, where, doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/client'
 import { getSystemSettings, saveSystemSettings } from '@/lib/settingsStore'
 
@@ -68,7 +68,7 @@ export default function AdminSettingsPage() {
     loadSettings()
   }, [loading, role, router])
 
-  const handleAddEmail = () => {
+  const handleAddEmail = async () => {
     const trimmed = newEmailInput.trim().toLowerCase()
     if (!trimmed) return
     if (!trimmed.includes('@')) {
@@ -86,21 +86,46 @@ export default function AdminSettingsPage() {
       localStorage.setItem('cs_admin_emails', JSON.stringify(updated))
     }
     setNewEmailInput('')
+
+    // 同步寫入 Firestore users 集合的 role
+    try {
+      const q = query(collection(db, 'users'), where('email', '==', trimmed))
+      const snap = await getDocs(q)
+      snap.forEach(async (uDoc) => {
+        await updateDoc(doc(db, 'users', uDoc.id), { role: 'admin' })
+      })
+    } catch (e) {
+      console.error('Failed to sync admin role to Firestore:', e)
+    }
+
     refreshUserDoc()
-    showToast(`✅ 已新增系統管理員：${trimmed}`)
+    showToast(`✅ 已新增系統管理員並同步雲端身分：${trimmed}`)
   }
 
-  const handleRemoveEmail = (emailToRemove: string) => {
-    const updated = adminEmails.filter(e => e !== emailToRemove)
+  const handleRemoveEmail = async (emailToRemove: string) => {
+    const trimmed = emailToRemove.trim().toLowerCase()
+    const updated = adminEmails.filter(e => e !== trimmed)
     setAdminEmails(updated)
     if (typeof window !== 'undefined') {
       localStorage.setItem('cs_admin_emails', JSON.stringify(updated))
     }
+
+    // 同步更新 Firestore users 集合
+    try {
+      const q = query(collection(db, 'users'), where('email', '==', trimmed))
+      const snap = await getDocs(q)
+      snap.forEach(async (uDoc) => {
+        await updateDoc(doc(db, 'users', uDoc.id), { role: 'examinee' })
+      })
+    } catch (e) {
+      console.error('Failed to revert admin role in Firestore:', e)
+    }
+
     refreshUserDoc()
     showToast(`🗑️ 已移除系統管理員：${emailToRemove}`)
   }
 
-  const handleAddSupervisorEmail = () => {
+  const handleAddSupervisorEmail = async () => {
     const trimmed = newSupervisorEmailInput.trim().toLowerCase()
     if (!trimmed) return
     if (!trimmed.includes('@')) {
@@ -118,16 +143,45 @@ export default function AdminSettingsPage() {
       localStorage.setItem('cs_supervisor_emails', JSON.stringify(updated))
     }
     setNewSupervisorEmailInput('')
+
+    // 同步更新 Firestore 中該 Email 使用者的真實 role 為 supervisor
+    try {
+      const q = query(collection(db, 'users'), where('email', '==', trimmed))
+      const snap = await getDocs(q)
+      snap.forEach(async (uDoc) => {
+        await updateDoc(doc(db, 'users', uDoc.id), { role: 'supervisor' })
+      })
+    } catch (e) {
+      console.error('Failed to sync supervisor role to Firestore:', e)
+    }
+
     refreshUserDoc()
-    showToast(`✅ 已新增主管授權：${trimmed}`)
+    showToast(`✅ 已新增主管授權並同步雲端身分：${trimmed}`)
   }
 
-  const handleRemoveSupervisorEmail = (emailToRemove: string) => {
-    const updated = supervisorEmails.filter(e => e !== emailToRemove)
+  const handleRemoveSupervisorEmail = async (emailToRemove: string) => {
+    const trimmed = emailToRemove.trim().toLowerCase()
+    const updated = supervisorEmails.filter(e => e !== trimmed)
     setSupervisorEmails(updated)
     if (typeof window !== 'undefined') {
       localStorage.setItem('cs_supervisor_emails', JSON.stringify(updated))
     }
+
+    // 同步更新 Firestore 中該 Email 使用者的真實 role 為 examinee
+    try {
+      const q = query(collection(db, 'users'), where('email', '==', trimmed))
+      const snap = await getDocs(q)
+      snap.forEach(async (uDoc) => {
+        // 若該用戶不是 admin，則將其降級恢復為 examinee
+        const data = uDoc.data() as any
+        if (data.role !== 'admin') {
+          await updateDoc(doc(db, 'users', uDoc.id), { role: 'examinee' })
+        }
+      })
+    } catch (e) {
+      console.error('Failed to revert supervisor role in Firestore:', e)
+    }
+
     refreshUserDoc()
     showToast(`🗑️ 已移除主管授權：${emailToRemove}`)
   }
@@ -429,6 +483,27 @@ export default function AdminSettingsPage() {
             >
               {isSyncingSheets ? '🚀 正在同步寫入 Google Sheets...' : '🔄 立即補同步所有成績至 Google Sheets'}
             </button>
+          </div>
+        </section>
+
+        {/* 4. 系統測試重置工具 (清空 exams 與 questions) */}
+        <section className={`pixel-panel ${styles.panel}`} style={{ gridColumn: '1 / -1', borderColor: 'var(--color-maple-red)' }}>
+          <h2 className={styles.panelTitle} style={{ color: 'var(--color-maple-red)' }}>🧹 系統測試重置工具 (清空 Exams & Questions)</h2>
+          <p className={styles.panelSub}>
+            如需重頭開始測試或重新匯入標準題庫，可點擊下方連結前往 Firestore 專用資料重置頁面。
+          </p>
+
+          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ color: 'var(--color-gray-3)', fontSize: '0.85rem' }}>
+              ⚠️ 注意：此操作將徹底刪除雲端 `exams`（考卷紀錄）與 `questions`（題庫資料）。
+            </div>
+            <Link
+              href="/admin/clear-db"
+              className="btn-pixel btn-primary"
+              style={{ backgroundColor: '#b91c1c', borderColor: '#ef4444', color: '#ffffff' }}
+            >
+              🔥 前往資料庫重置頁面 →
+            </Link>
           </div>
         </section>
       </div>

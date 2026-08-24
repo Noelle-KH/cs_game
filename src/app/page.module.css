@@ -89,10 +89,10 @@
 /* ── 主內容 ── */
 .content {
   flex: 1;
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-4) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-4);
   max-width: 960px;
   margin: 0 auto;
 }
@@ -100,11 +100,11 @@
 /* ── NPC 對話對話框 ── */
 .npcBanner {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-4);
   background: var(--color-dark-panel);
   border: 3px solid var(--color-sky-blue);
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   box-shadow: var(--shadow-pixel);
 }
 
@@ -112,14 +112,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 90px;
+  min-width: 80px;
   background: rgba(0, 0, 0, 0.4);
-  padding: var(--space-3);
+  padding: var(--space-2);
   border: 2px solid var(--color-dark-border);
 }
 
 .npcPixelArt {
-  font-size: 2.5rem;
+  font-size: 2rem;
   animation: float-pixel 2s steps(2, end) infinite;
 }
 
@@ -127,7 +127,7 @@
   font-family: var(--font-pixel);
   font-size: var(--text-xs);
   color: var(--color-sky-blue);
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 .dialogBox {
@@ -144,35 +144,47 @@
 }
 
 .dialogText {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--color-parchment);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
-/* ── 月度任務提示條 ── */
-.noticeBanner {
+/* ── NPC 內部整合月度任務列 ── */
+.npcNoticeInline {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  background: rgba(204, 61, 61, 0.15);
-  border: 2px solid var(--color-maple-red);
-  padding: var(--space-4) var(--space-5);
-  box-shadow: var(--shadow-pixel-sm);
+  gap: var(--space-3);
+  background: rgba(204, 61, 61, 0.12);
+  border: 1px solid var(--color-maple-red);
+  padding: var(--space-2) var(--space-3);
+  margin-top: var(--space-1);
 }
 
-.noticeIcon {
-  font-size: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-left: var(--space-2);
-  margin-right: var(--space-1);
+.noticeSuccess {
+  background: rgba(76, 175, 80, 0.1) !important;
+  border-color: var(--color-success) !important;
 }
 
-.noticeContent {
+.noticeIconInline {
+  font-size: var(--text-base);
+  flex-shrink: 0;
+}
+
+.noticeContentInline {
   flex: 1;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--color-parchment-dark);
+}
+
+.noticeContentInline strong {
+  color: var(--color-warm-orange);
+  font-family: var(--font-pixel);
+}
+
+.npcNoticeBtn {
+  padding: 2px var(--space-3) !important;
+  font-size: var(--text-xs) !important;
+  flex-shrink: 0;
 }
 
 /* ── 模式選擇區 ── */

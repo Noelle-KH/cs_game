@@ -19,13 +19,39 @@ export default function LeaderboardPage() {
     async function fetchCloudLeaderboard() {
       setLoadingLeaderboard(true)
       try {
+        // 1. 先從 Firestore `users` 集合查出所有 admin / supervisor 人員名單以進行排除
+        const nonExamineeKeys = new Set<string>()
+        try {
+          const usersSnap = await getDocs(collection(db, 'users'))
+          usersSnap.forEach((uDoc) => {
+            const uData = uDoc.data()
+            if (uData.role === 'admin' || uData.role === 'supervisor') {
+              if (uDoc.id) nonExamineeKeys.add(uDoc.id)
+              if (uData.email) nonExamineeKeys.add(uData.email.toLowerCase())
+            }
+          })
+        } catch (err) {
+          console.warn('Failed to fetch users role map for leaderboard filtering:', err)
+        }
+
+        // 2. 查出已批改考卷
         const q = query(collection(db, 'exams'), where('status', '==', 'graded'))
         const snap = await getDocs(q)
         const allExams: any[] = []
         snap.forEach((docSnap) => {
           const d = docSnap.data()
+          const uid = d.uid || ''
+          const email = (d.userEmail || d.email || '').toLowerCase()
+          
+          // 排除管理員與主管的測試考卷
+          if (nonExamineeKeys.has(uid) || nonExamineeKeys.has(email)) {
+            return
+          }
+
           allExams.push({
             id: d.id,
+            uid,
+            userEmail: email,
             displayName: d.displayName || '客服勇者',
             mode: d.mode,
             score: d.score || 0,
@@ -38,14 +64,30 @@ export default function LeaderboardPage() {
         const quizTh = settings.quizPassThreshold ?? settings.passThreshold ?? 90
         const essayTh = settings.essayPassThreshold ?? settings.passThreshold ?? 90
 
-        const quizSorted = allExams
-          .filter((e) => e.mode === 'quiz')
-          .map((e) => ({ ...e, passed: e.score >= quizTh }))
-          .sort((a, b) => b.score - a.score)
-        const essaySorted = allExams
-          .filter((e) => e.mode === 'essay')
-          .map((e) => ({ ...e, passed: e.score >= essayTh }))
-          .sort((a, b) => b.score - a.score)
+        // 按使用者去重，只保留個人最高分考卷
+        const getBestUserExams = (exams: any[], threshold: number) => {
+          const userBestMap = new Map<string, any>()
+          exams.forEach((e) => {
+            const userKey = e.uid || e.userEmail || e.displayName
+            const existing = userBestMap.get(userKey)
+            if (!existing || e.score > existing.score) {
+              userBestMap.set(userKey, {
+                ...e,
+                passed: e.score >= threshold,
+              })
+            }
+          })
+          return Array.from(userBestMap.values()).sort((a, b) => b.score - a.score)
+        }
+
+        const quizSorted = getBestUserExams(
+          allExams.filter((e) => e.mode === 'quiz'),
+          quizTh
+        )
+        const essaySorted = getBestUserExams(
+          allExams.filter((e) => e.mode === 'essay'),
+          essayTh
+        )
 
         setQuizList(quizSorted)
         setEssayList(essaySorted)

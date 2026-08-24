@@ -40,6 +40,7 @@ export default function EssayLobbyPage() {
     qaTimePerQuestion: 300,
     essayTimePerQuestion: 600,
   })
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false)
 
   const now = new Date()
   const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -56,6 +57,7 @@ export default function EssayLobbyPage() {
     async function loadSettings() {
       const s = await getSystemSettings()
       setSysSettings(s)
+      setIsSettingsLoaded(true)
     }
     loadSettings()
   }, [])
@@ -79,7 +81,13 @@ export default function EssayLobbyPage() {
       try {
         const allExams = await getUserExamsFirestore(currentUid)
         const essayExams = allExams.filter((e) => e.mode === 'essay')
-        setEssayHistory(essayExams)
+
+        // 僅篩選已完成批改的考卷，由最高分到最低分排序，最多取前 5 高分數
+        const gradedEssayExams = essayExams
+          .filter((e) => e.status === 'graded')
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .slice(0, 5)
+        setEssayHistory(gradedEssayExams)
 
         // 檢查本月是否有提交紀錄 (submitted 或 graded)
         const submittedThisMonth = essayExams.some((e) => {
@@ -113,10 +121,10 @@ export default function EssayLobbyPage() {
     loadCloudHistory()
   }, [userDoc, currentYearMonth, loading])
 
-  if (loading || !userDoc || !isHistoryLoaded) {
+  if (loading || !userDoc || !isHistoryLoaded || !isSettingsLoaded) {
     return (
       <div className={styles.loading}>
-        <p className="pixel-title">載入中...</p>
+        <p className="pixel-title animate-float">載入考場數據與雲端設定中...</p>
       </div>
     )
   }
@@ -169,7 +177,7 @@ export default function EssayLobbyPage() {
         >
           ← 返回大廳
         </button>
-        <span className={`pixel-title ${styles.navTitle}`}>📝 申論模式</span>
+        <span className={`pixel-title ${styles.navTitle}`}>📝 申論模式考試大廳</span>
         <div className={styles.navRight}>
           <span className={styles.playerName}>👤 {userDoc.displayName}</span>
           <button
@@ -183,12 +191,6 @@ export default function EssayLobbyPage() {
       </nav>
 
       <div className={`container ${styles.content}`}>
-        {/* 頁面標題 */}
-        <section className={`animate-slide-in ${styles.hero}`}>
-          <div className={styles.heroIcon}>📝</div>
-          <h1 className={`pixel-title ${styles.heroTitle}`}>申論模式考試大廳</h1>
-          <p className={styles.heroSub}>深度情境申論，由主管親自評分批改</p>
-        </section>
 
         {/* 本月提醒 */}
         {!hasSubmittedThisMonth && (

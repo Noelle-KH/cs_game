@@ -21,6 +21,8 @@ export default function QuizLobbyPage() {
   const { user, userDoc, loading, logout } = useAuth()
   const router = useRouter()
   const [isStarting, setIsStarting] = useState(false)
+  const [cloudExams, setCloudExams] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(true)
   const [sysSettings, setSysSettings] = useState<SettingsDoc>({
     sheetsIdQuestions: '',
     sheetsIdResults: '',
@@ -34,6 +36,7 @@ export default function QuizLobbyPage() {
     qaTimePerQuestion: 300,
     essayTimePerQuestion: 600,
   })
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false)
 
   // 登入狀態檢查：未登入時重導回 /login
   useEffect(() => {
@@ -46,14 +49,35 @@ export default function QuizLobbyPage() {
     async function loadSettings() {
       const s = await getSystemSettings()
       setSysSettings(s)
+      setIsSettingsLoaded(true)
     }
     loadSettings()
   }, [])
 
-  if (loading || !userDoc) {
+  // 載入該使用者的雲端歷史成績
+  useEffect(() => {
+    async function loadHistory() {
+      if (user?.uid) {
+        setLoadingHistory(true)
+        const exams = await getUserExamsFirestore(user.uid)
+        // 僅保留已完成/已批改(status !== 'submitted' & status !== 'in_progress')，並依分數由高到低排序，取前 5 高分數
+        const filteredQuizExams = exams
+          .filter(e => e.mode === 'quiz' && e.status !== 'submitted' && e.status !== 'in_progress')
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .slice(0, 5)
+        setCloudExams(filteredQuizExams)
+        setLoadingHistory(false)
+      } else {
+        setLoadingHistory(false)
+      }
+    }
+    loadHistory()
+  }, [user])
+
+  if (loading || !userDoc || !isSettingsLoaded) {
     return (
       <div className={styles.loading}>
-        <p className="pixel-title">載入中...</p>
+        <p className="pixel-title animate-float">載入考場數據與雲端設定中...</p>
       </div>
     )
   }
@@ -62,24 +86,6 @@ export default function QuizLobbyPage() {
     await logout()
     router.replace('/login')
   }
-
-  // 載入該使用者的雲端歷史成績
-  const [cloudExams, setCloudExams] = useState<any[]>([])
-  const [loadingHistory, setLoadingHistory] = useState(true)
-
-  useEffect(() => {
-    async function loadHistory() {
-      if (user?.uid) {
-        setLoadingHistory(true)
-        const exams = await getUserExamsFirestore(user.uid)
-        setCloudExams(exams.filter(e => e.mode === 'quiz'))
-        setLoadingHistory(false)
-      } else {
-        setLoadingHistory(false)
-      }
-    }
-    loadHistory()
-  }, [user])
 
   const bestScore = cloudExams.length > 0 
     ? Math.max(...cloudExams.map(e => e.score || 0)) 
@@ -126,7 +132,7 @@ export default function QuizLobbyPage() {
         >
           ← 返回大廳
         </button>
-        <span className={`pixel-title ${styles.navTitle}`}>⚔️ 綜合模式</span>
+        <span className={`pixel-title ${styles.navTitle}`}>⚔️ 綜合模式考試大廳</span>
         <div className={styles.navRight}>
           <span className={styles.playerName}>👤 {userDoc.displayName}</span>
           <button
@@ -140,13 +146,6 @@ export default function QuizLobbyPage() {
       </nav>
 
       <div className={`container ${styles.content}`}>
-        {/* 頁面標題 */}
-        <section className={`animate-slide-in ${styles.hero}`}>
-          <div className={styles.heroIcon}>⚔️</div>
-          <h1 className={`pixel-title ${styles.heroTitle}`}>綜合模式考試大廳</h1>
-          <p className={styles.heroSub}>準備好迎接挑戰了嗎？確認規則後即可開始！</p>
-        </section>
-
         <div className={styles.grid}>
           {/* 左欄：考試規則 */}
           <section className={`pixel-panel ${styles.rulesPanel}`}>
@@ -204,7 +203,7 @@ export default function QuizLobbyPage() {
                 {cloudExams.map((exam, idx) => (
                   <div key={exam.id} className={`${styles.historyCard} ${exam.passed ? styles.cardPassed : styles.cardFailed}`}>
                     <div className={styles.historyRank}>
-                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
+                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}️⃣`}
                     </div>
                     <div className={styles.historyInfo}>
                       <span className={styles.historyDate}>

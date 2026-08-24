@@ -6,6 +6,7 @@ import {
   doc,
   setDoc,
   updateDoc,
+  deleteDoc,
   writeBatch,
   query,
   where,
@@ -111,10 +112,16 @@ export async function toggleQuestionEnabledFirestore(id: string, currentEnabled:
 }
 
 /**
- * 軟刪除題目 (設定 enabled=false)
+ * 徹底硬刪除題目 (從 Firestore collection 中直接刪除 document)
  */
-export async function deleteQuestionSoftFirestore(id: string): Promise<QuestionDoc[]> {
-  return toggleQuestionEnabledFirestore(id, true)
+export async function deleteQuestionHardFirestore(id: string): Promise<QuestionDoc[]> {
+  try {
+    const ref = doc(db, QUESTIONS_COLLECTION, id)
+    await deleteDoc(ref)
+  } catch (e) {
+    console.error('Failed to delete question from Firestore:', e)
+  }
+  return getFirestoreQuestions()
 }
 
 /**

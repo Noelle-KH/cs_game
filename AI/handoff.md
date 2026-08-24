@@ -10,10 +10,10 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：✅ 使用者測試反饋修復與全站動態門檻/考場防呆機制優化完成
+**專案階段**：✅ 全站 UI 版面視覺優化、角色稱謂統一、測試者排查與 Firestore 雲端雙向硬刪除/重置工具配置完成
 **分支**：`main`
 **PRD 規範**：v1.2
-**最後更新**：2026-08-21
+**最後更新**：2026-08-24
 
 ### 已完成
 - [x] PRD 撰寫與確認（v1.2）
@@ -42,6 +42,15 @@
 - [x] 主管批改後台 (`/admin/grade`) UI 升級：移除評分滑桿、數字邊界限制與隱藏微調箭頭、評語未填寫跳彈窗警告、送出二次確認彈窗優化
 - [x] 團隊考核總覽 (`/admin/users`)：雙欄獨立呈現「綜合最高分」與「申論最高分」，未考試考生完整列表追蹤
 - [x] 清除全站「略過未答」統計卡片，呈現 3 欄 / 2 欄精簡佈局
+- [x] 冒險排行榜 (`/leaderboard`) 題目與用戶去重機制：同帳號僅保留最高分紀錄、自動過濾系統管理員與客服主管的測試資料
+- [x] 首頁與考場大廳 UI 視覺優化：隱藏大廳 Hero 重複區塊、精簡首頁 NPC 對話框並為系統管理員自動隱藏 NPC 區塊
+- [x] 錯題回顧 (`/exam/quiz/[examId]/review`) 與成績結果頁版面高度固定與獨立捲動，無任何 Viewport 溢出
+- [x] 稱謂統一調整：非管理員考生 = `客服`，主管 = `客服主管`，系統管理員 = `系統管理員`
+- [x] 大廳異步閃爍與 React Rules of Hooks Bug 修正
+- [x] 題庫管理後台 (`/admin/questions`) 徹底硬刪除 (Hard Delete) 升級與楓之谷像素風 ConfirmModal 二階段確認彈窗
+- [x] Firestore 雲端資料庫重置頁面 (`/admin/clear-db`)：提供一鍵批次徹底清空 `exams` 與 `questions` 資料庫工具
+- [x] 題庫管理後台回首頁 AuthContext 載入防呆修復（避免誤跳往 `/setup`）
+- [x] 主管權限設定雙向同步修復：在 `/admin/settings` 新增/移除主管時即時將 `role: 'supervisor'`/`'examinee'` 寫入 Firestore `users` 集合
 
 ### 下次待辦
 - [ ] 執行線上正式營運監控與持續反饋收集
@@ -49,6 +58,39 @@
 ---
 
 ## 📅 開發日誌
+
+---
+
+### 2026-08-24 | UI 版面與字體優化、測試資料過濾、題庫硬刪除/重置工具與權限雲端雙向同步
+
+**負責人**：AI  
+**開發時長**：約 4.0 小時
+
+#### ✅ 今日完成
+1. **冒險排行榜最高分去重與測試帳號過濾 (`/leaderboard`)**：
+   - Leaderboard 實施 `uid || userEmail || displayName` 分組，同帳號每種模式只保留單一最高分紀錄。
+   - 自動讀取 Firestore `users` 集合，徹底排除系統管理員 (`role === 'admin'`) 與客服主管 (`role === 'supervisor'`) 的測試紀錄。
+2. **首頁與大廳版面視覺優化**：
+   - 考場大廳 (`/exam/quiz/lobby`, `/exam/essay/lobby`)：導覽列標題更名為 `⚔️ 綜合模式考試大廳` 與 `📝 申論模式考試大廳`，並移除中間重複的 Hero 區塊與多餘高距。
+   - 首頁對話框精簡 (`/page.tsx`)：將本月申論任務通知條內嵌至 NPC 點陣對話框中；當為 **系統管理員 (Admin)** 登入時自動隱藏整塊 NPC 區塊。
+3. **錯題回顧與結果頁 Layout 優化 (`review` / `result`)**：
+   - 錯題回顧頁面設定為 `100vh; overflow: hidden;`，左側題目列表與右側詳情面板實施獨立垂直捲動 (`overflow-y: auto`)，解決全頁拉動問題。
+   - 結果頁壓縮邊距與圓圈尺寸，確保單一視窗完整呈現無須捲動。
+4. **稱謂與無門檻標示修正**：
+   - 全站將考生角色稱謂統一調整為 **`客服`**，主管標示為 **`客服主管`**。
+   - 成績統計標題移除寫死的 `(≥90分)` 標示，避免調低門檻時產生誤解。
+5. **大廳加載閃爍與 React Rules of Hooks Bug 修正**：
+   - 引入 `isSettingsLoaded` 狀態監聽，並將所有 React Hooks (useState/useEffect) 一律調至組件最上方，解決加載閃跳與 Hook 順序錯亂問題。
+6. **題庫管理後台 (`/admin/questions`) 徹底硬刪除與像素彈窗**：
+   - 修正原本軟刪除 logic，升級為使用 Firestore SDK `deleteDoc` 直接刪除雲端 Document (`deleteQuestionHardFirestore`)。
+   - 導入楓之谷點陣像素風 `ConfirmModal` 替代原生二階段 confirmation。
+7. **Firestore 資料庫一鍵重置工具 (`/admin/clear-db`)**：
+   - 建立安全重置工具頁面與 `/admin/settings` 入口按鈕，支援分批一鍵徹底清空雲端 `exams` 與 `questions` 集合，並即時回報進度 Log。
+8. **題庫後台 AuthContext 防呆修復**：
+   - 於 `/admin/questions` 加入 `useAuth()` 與 `userDocLoaded` 驗證，解決點擊「🏠 回首頁」時誤觸 `/setup` 設定頁的問題。
+9. **主管與管理員權限雙向雲端同步 (`/admin/settings`)**：
+   - 修改 `handleAddSupervisorEmail` / `handleRemoveSupervisorEmail` / `handleAddEmail` / `handleRemoveEmail`，在新增或移除權限時即時更新 Firestore `users` 集合內相對應帳號的 `role` 欄位 (`supervisor` / `admin` / `examinee`)。
+10. 通過 `npx tsc --noEmit` 型別驗證與全站編譯。
 
 ---
 

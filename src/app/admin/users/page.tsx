@@ -31,19 +31,30 @@ export default function AdminUsersOverviewPage() {
 
       // 1. 讀取 Firestore `users` 集合中所有身分為考生的帳號
       const examineeMap = new Map<string, ExamineeOverview>()
+      const nonExamineeKeys = new Set<string>()
+
       try {
         const usersRef = collection(db, 'users')
         const usersSnap = await getDocs(usersRef)
         usersSnap.forEach((uDoc) => {
           const uData = uDoc.data()
+          const uid = uDoc.id
+          const email = (uData.email || '').toLowerCase()
+
+          // 收集管理員與主管帳號，確保後續不會被誤建立為考生條目
+          if (uData.role === 'admin' || uData.role === 'supervisor') {
+            if (uid) nonExamineeKeys.add(uid)
+            if (email) nonExamineeKeys.add(email)
+            if (uData.displayName) nonExamineeKeys.add(uData.displayName)
+            return
+          }
+
           // 若無 role 預設或 role === 'examinee'
           if (!uData.role || uData.role === 'examinee') {
-            const uid = uDoc.id
             const name = uData.displayName || '客服勇者'
-            const email = uData.email || ''
             examineeMap.set(uid, {
               name,
-              email,
+              email: uData.email || '',
               totalQuizExams: 0,
               totalEssayExams: 0,
               thisMonthEssayStatus: 'none',
@@ -57,11 +68,17 @@ export default function AdminUsersOverviewPage() {
         console.warn('Failed to fetch users from Firestore, fallback to exam records:', err)
       }
 
-      // 2. 讀取 Firestore `exams` 考卷紀錄並 left-join 比對
+      // 2. 讀取 Firestore `exams` 考卷紀錄並比對
       const allExams = await getAllExamsFirestore()
 
       allExams.forEach((item: CloudExamDoc) => {
         const key = item.uid || item.userEmail || item.displayName
+        const itemEmail = (item.userEmail || '').toLowerCase()
+
+        // 排除系統管理員與主管的測驗紀錄
+        if (nonExamineeKeys.has(item.uid) || nonExamineeKeys.has(itemEmail) || nonExamineeKeys.has(item.displayName)) {
+          return
+        }
         const name = item.displayName || '客服新人'
         const email = item.userEmail || ''
         

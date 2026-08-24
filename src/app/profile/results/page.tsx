@@ -70,7 +70,7 @@ export default function ProfileResultsPage() {
           <div className={styles.statNumber}>{totalExams} 場</div>
         </div>
         <div className={styles.statCard}>
-          <div className={styles.statTitle}>通過場數 (≥90分)</div>
+          <div className={styles.statTitle}>通過場數</div>
           <div className={styles.statNumber} style={{ color: '#4ade80' }}>
             {passedExams} 場
           </div>

@@ -60,7 +60,7 @@ export default function EssayExamPage({
 
         const allStored = await getFirestoreQuestions()
         
-        // 去除重複題目
+        // 1. 確保只抽取的 enabled === true 且 type === 'essay' 的申論題
         const uniqueMap = new Map<string, any>()
         allStored.forEach((q) => {
           if (q.enabled && q.type === 'essay') {
@@ -70,6 +70,7 @@ export default function EssayExamPage({
             }
           }
         })
+
         const validQs = Array.from(uniqueMap.values())
 
         // Fisher-Yates 嚴謹隨機洗牌

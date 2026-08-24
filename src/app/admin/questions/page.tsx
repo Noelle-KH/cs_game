@@ -5,20 +5,42 @@ import Link from 'next/link'
 import * as ExcelJS from 'exceljs'
 import styles from './questions.module.css'
 import { QuestionDoc, QuestionType, Difficulty } from '@/types'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import ConfirmModal from '@/components/ConfirmModal'
 import {
   getFirestoreQuestions,
   toggleQuestionEnabledFirestore,
   saveSingleQuestionFirestore,
-  deleteQuestionSoftFirestore,
+  deleteQuestionHardFirestore,
   importQuestionsToFirestore,
 } from '@/lib/questionStore'
 
 export default function AdminQuestionsPage() {
+  const { user, userDoc, userDocLoaded, loading } = useAuth()
+  const router = useRouter()
+
   const [questions, setQuestions] = useState<QuestionDoc[]>([])
   const [loadingQuestions, setLoadingQuestions] = useState<boolean>(true)
   const [filterType, setFilterType] = useState<string>('all')
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all')
   const [searchKeyword, setSearchKeyword] = useState<string>('')
+
+  // 檢查登入驗證與 displayName 狀態
+  useEffect(() => {
+    if (!loading && userDocLoaded) {
+      if (!user) {
+        router.replace('/login')
+      } else if (!userDoc?.displayName) {
+        router.replace('/setup')
+      }
+    }
+  }, [loading, userDocLoaded, user, userDoc, router])
+
+  // 刪除確認 Modal 狀態
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [targetDeleteId, setTargetDeleteId] = useState<string | null>(null)
+  const [targetDeleteTitle, setTargetDeleteTitle] = useState<string>('')
 
   // Modal 狀態
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -66,14 +88,22 @@ export default function AdminQuestionsPage() {
     setLoadingQuestions(false)
   }
 
-  // 軟刪除題目
-  const handleDelete = async (id: string) => {
-    if (confirm('確定要停用/軟刪除此題目嗎？（該題目將不發送至測驗考場）')) {
-      setLoadingQuestions(true)
-      const updated = await deleteQuestionSoftFirestore(id)
-      setQuestions(updated)
-      setLoadingQuestions(false)
-    }
+  // 觸發硬刪除確認視窗
+  const openDeleteConfirm = (q: QuestionDoc) => {
+    setTargetDeleteId(q.id)
+    setTargetDeleteTitle(q.content.length > 30 ? `${q.content.slice(0, 30)}...` : q.content)
+    setDeleteConfirmOpen(true)
+  }
+
+  // 確定徹底硬刪除題目
+  const handleConfirmDelete = async () => {
+    if (!targetDeleteId) return
+    setDeleteConfirmOpen(false)
+    setLoadingQuestions(true)
+    const updated = await deleteQuestionHardFirestore(targetDeleteId)
+    setQuestions(updated)
+    setLoadingQuestions(false)
+    setTargetDeleteId(null)
   }
 
   // 打開新增/編輯彈窗
@@ -552,7 +582,7 @@ export default function AdminQuestionsPage() {
                       <button
                         className={`${styles.pixelBtn} ${styles.btnDanger}`}
                         style={{ padding: '2px 8px', fontSize: '0.75rem' }}
-                        onClick={() => handleDelete(q.id)}
+                        onClick={() => openDeleteConfirm(q)}
                       >
                         🗑️ 刪除
                       </button>
@@ -564,6 +594,17 @@ export default function AdminQuestionsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* 刪除確認 Modal (像素風) */}
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        title="⚠️ 確定徹底刪除題目？"
+        message={`您即將從雲端資料庫中【徹底刪除】以下題目，此動作無法復原：\n\n「${targetDeleteTitle}」`}
+        confirmText="🗑️ 徹底刪除"
+        cancelText="❌ 取消"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteConfirmOpen(false)}
+      />
 
       {/* 單筆編輯 / 新增 Modal */}
       {editModalOpen && (
