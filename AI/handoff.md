@@ -10,7 +10,7 @@
 
 ## 📋 目前狀態（最新）
 
-**專案階段**：✅ 主管批改快捷給分、已批改查閱與擱置功能、申論大廳與首頁說明精簡、團隊考核成員歷史評分彈窗與直達連結、全站主管實時待批改通知與主管 UI 視覺調優完成
+**專案階段**：✅ 主管批改快捷給分、已批改查閱與擱置功能、申論大廳說明精簡、團隊歷史評分彈窗、全站待批改實時通知與 Next.js 部署編譯修正完成
 **分支**：`main`
 **PRD 規範**：v1.2
 **最後更新**：2026-08-26
@@ -24,6 +24,7 @@
 - [x] 團隊考核總覽 (`/admin/users`) 點擊考生姓名彈出近半年綜合/申論評分與主管評語細節彈窗 Modal，並附帶 `🔍 前往閱卷頁面` 直達連結
 - [x] 雲端實時監聽與全站 Header 主管待批改像素動態通知 Badge（`👑 批改後台 [ X 筆待批改 ]`）與首頁 NPC 對話框待批改提醒
 - [x] 主管批改後台 (`/admin/grade`) 動作按鈕對齊與左側列表邊界 Hover/Padding 裁切修復
+- [x] 修復 `/admin/grade` 因 `useSearchParams()` 缺少 `<Suspense>` 包覆導致之 Next.js 建置靜態頁面導出 (Prerender) 失敗錯誤
 
 ### 下次待辦
 - [ ] 執行線上正式營運監控與持續反饋收集
@@ -55,7 +56,9 @@
 6. **主管批改後台 UI 邊界與按鈕比例優化 (`/admin/grade`)**：
    - 頂部動作按鈕統一高度、Padding 與 border，並以 `inline-flex` + `whiteSpace: 'nowrap'` 置中對齊。
    - 左側卡片 Hover 效果改為向上浮動 `translateY(-2px)`，並補充 `.examList` Padding 與 Sidebar 寬度，解決右側光暈邊界被裁切問題。
-7. 全面通過 `npx tsc --noEmit` 型別檢查。
+7. **Next.js 生產建置與 Prerender 錯誤排查修正 (`/admin/grade`)**：
+   - 將使用 `useSearchParams()` 的核心組件包裹於 `<React.Suspense>` 邊界中並補上 `export const dynamic = 'force-dynamic'`，解決 Vercel / Next.js 建置靜態導出 (Prerender) 時出現的 `Error occurred prerendering page "/admin/grade"`。
+8. 全面通過 `npm run build` 與 `npx tsc --noEmit` 型別與編譯檢查。
 
 ---
 

@@ -24,6 +24,8 @@ import ConfirmModal from '@/components/ConfirmModal'
 
 import { useSearchParams } from 'next/navigation'
 
+export const dynamic = 'force-dynamic'
+
 // 定義通用後台考卷型別（包含申論與綜合模式）
 export interface PendingExamItem {
   examId: string
@@ -51,6 +53,14 @@ export interface PendingExamItem {
 const INITIAL_MOCK_PENDING_EXAMS: PendingExamItem[] = []
 
 export default function AdminGradePage() {
+  return (
+    <React.Suspense fallback={<div style={{ padding: '20px', color: '#fff' }}>載入批改頁面中...</div>}>
+      <AdminGradeContent />
+    </React.Suspense>
+  )
+}
+
+function AdminGradeContent() {
   const { userDoc } = useAuth()
   const searchParams = useSearchParams()
   const targetExamId = searchParams.get('examId')
