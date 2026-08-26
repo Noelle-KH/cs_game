@@ -63,12 +63,12 @@ export default function EssayLobbyPage() {
   }, [])
 
   const dynamicEssayRules = [
-    { icon: '📝', label: '題型', value: `申論題，共 ${sysSettings.essayQuestionCount} 題` },
-    { icon: '⏱️', label: '計時', value: `每題 ${formatTimeText(sysSettings.essayTimePerQuestion)} 倒數，超時自動換題` },
-    { icon: '🎯', label: '評分方式', value: `主管逐題批改（每題 0–${Math.round(100 / (sysSettings.essayQuestionCount || 10))} 分，滿分 100）` },
-    { icon: '🔔', label: '批改通知', value: '主管批改完成後系統推送通知' },
-    { icon: '⚠️', label: '並行限制', value: '同時只能存在一場（含待批改中）' },
-    { icon: '📅', label: '提交頻率', value: '每月至少提交一次，首頁顯示提醒' },
+    { icon: '📝', label: '題型規格', value: `申論題，共 ${sysSettings.essayQuestionCount} 題` },
+    { icon: '⏱️', label: '獨立計時', value: `每題 ${formatTimeText(sysSettings.essayTimePerQuestion)} 獨立倒數，超時自動換題` },
+    { icon: '🎯', label: '主管人工審核', value: `主管逐題打分與寫評語（每題 0–${Math.round(100 / (sysSettings.essayQuestionCount || 10))} 分，滿分 100）` },
+    { icon: '🔒', label: '並行與頻率限制', value: '同時只能存在一場（含待批改中），每月至少需提交一次' },
+    { icon: '🚫', label: '禁止查閱資料', value: '作答過程中嚴禁查閱外部文件、講義或搜尋引擎，請憑自身實力擬答' },
+    { icon: '🔔', label: '批改通知', value: '主管批改完成後系統將發送通知' },
   ]
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 // Exam Store — Firestore exams 雲端考卷集合讀寫服務
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, onSnapshot, orderBy, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/client'
 import { QuestionDoc } from '@/types'
 
@@ -254,8 +254,22 @@ export async function getAllExamsFirestore(): Promise<CloudExamDoc[]> {
 }
 
 /**
+ * 更新單筆考卷的狀態 (例如 擱置 shelved 或 移回待批改 submitted)
+ */
+export async function updateExamStatusFirestore(examId: string, status: 'submitted' | 'graded' | 'shelved' | 'in_progress'): Promise<void> {
+  try {
+    const ref = doc(db, EXAMS_COLLECTION, examId)
+    await updateDoc(ref, { status })
+  } catch (e) {
+    console.error('Failed to update exam status in Firestore:', e)
+    throw e
+  }
+}
+
+/**
  * 查詢所有待批改考卷 (status === 'submitted')
  */
+
 export async function getPendingExamsFirestore(): Promise<CloudExamDoc[]> {
   try {
     const q = query(
@@ -278,3 +292,35 @@ export async function getPendingExamsFirestore(): Promise<CloudExamDoc[]> {
     return []
   }
 }
+
+/**
+ * 實時監聽待批改考卷 (status === 'submitted') 變動
+ */
+export function subscribePendingExams(
+  onUpdate: (pendingExams: CloudExamDoc[]) => void
+): () => void {
+  try {
+    const q = query(
+      collection(db, EXAMS_COLLECTION),
+      where('status', '==', 'submitted')
+    )
+    return onSnapshot(q, (snap) => {
+      const list: CloudExamDoc[] = []
+      snap.forEach((docSnap) => {
+        const data = docSnap.data()
+        list.push({
+          ...data,
+          startedAt: data.startedAt?.toDate ? data.startedAt.toDate() : new Date(),
+          submittedAt: data.submittedAt?.toDate ? data.submittedAt.toDate() : null,
+        } as CloudExamDoc)
+      })
+      onUpdate(list)
+    }, (err) => {
+      console.warn('Realtime pending exams listener error:', err)
+    })
+  } catch (e) {
+    console.error('Failed to subscribe pending exams:', e)
+    return () => {}
+  }
+}
+

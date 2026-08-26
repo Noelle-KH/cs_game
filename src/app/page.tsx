@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import styles from './page.module.css'
 import { getEssayLock } from '@/lib/examSession'
-import { getUserExamsFirestore } from '@/lib/examStore'
+import { getUserExamsFirestore, subscribePendingExams, CloudExamDoc } from '@/lib/examStore'
 import { getSystemSettings } from '@/lib/settingsStore'
 import { SettingsDoc } from '@/types'
 
@@ -16,6 +16,7 @@ export default function HomePage() {
   const [hasEssayLock, setHasEssayLock] = useState<boolean>(false)
   const [hasSubmittedThisMonth, setHasSubmittedThisMonth] = useState<boolean>(false)
   const [isStatusLoaded, setIsStatusLoaded] = useState<boolean>(false)
+  const [pendingCount, setPendingCount] = useState<number>(0)
   const [sysSettings, setSysSettings] = useState<SettingsDoc>({
     sheetsIdQuestions: '',
     sheetsIdResults: '',
@@ -29,6 +30,19 @@ export default function HomePage() {
     qaTimePerQuestion: 300,
     essayTimePerQuestion: 600,
   })
+
+  // 實時監聽全系統待批改考卷數量
+  useEffect(() => {
+    if (!userDoc) return
+    const isSupervisorOrAdmin = userDoc.role === 'supervisor' || userDoc.role === 'admin'
+    if (!isSupervisorOrAdmin) return
+
+    const unsubscribe = subscribePendingExams((pendingExams: CloudExamDoc[]) => {
+      setPendingCount(pendingExams.length)
+    })
+
+    return () => unsubscribe()
+  }, [userDoc])
 
   // 檢查是否登入與是否填寫顯示名稱
   useEffect(() => {
@@ -108,6 +122,45 @@ export default function HomePage() {
         </div>
 
         <div className={styles.navRight}>
+          {isSupervisorOrAdmin && (
+            <button
+              className="btn-pixel"
+              style={{
+                backgroundColor: pendingCount > 0 ? '#ef4444' : '#1e293b',
+                color: '#ffffff',
+                border: `2px solid ${pendingCount > 0 ? '#f87171' : '#475569'}`,
+                padding: '4px 10px',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                borderRadius: 4,
+                boxShadow: pendingCount > 0 ? '0 0 10px rgba(239, 68, 68, 0.6)' : 'none',
+                animation: pendingCount > 0 ? 'pulse 2s infinite' : 'none'
+              }}
+              onClick={() => router.push('/admin/grade')}
+            >
+              <span>👑 批改後台</span>
+              {pendingCount > 0 ? (
+                <span
+                  style={{
+                    backgroundColor: '#ffffff',
+                    color: '#dc2626',
+                    borderRadius: '9999px',
+                    padding: '1px 6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {pendingCount} 筆待批改
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>無待批改</span>
+              )}
+            </button>
+          )}
+
           <span className={styles.playerName}>
             👤 {displayName} ({
               userDoc.role === 'admin' 
@@ -144,7 +197,24 @@ export default function HomePage() {
                   : `歡迎來到星光冒險營！${displayName}，今天的客服考核準備好了嗎？完成綜合與申論模式提升你的實戰能力吧！`}
               </p>
 
-              {/* 整合月度任務提示條 */}
+              {/* 主管待批改任務提醒條 */}
+              {isSupervisorOrAdmin && pendingCount > 0 && (
+                <div className={`${styles.npcNoticeInline}`} style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444' }}>
+                  <span className={styles.noticeIconInline}>🔔</span>
+                  <span className={styles.noticeContentInline} style={{ color: '#fca5a5' }}>
+                    <strong>【待批改提醒】</strong> 目前共有 <strong>{pendingCount} 筆</strong> 考生提交的考卷等待您進行批改打分與寫評語！
+                  </span>
+                  <button
+                    className={`btn-pixel btn-primary ${styles.npcNoticeBtn}`}
+                    style={{ backgroundColor: '#ef4444', borderColor: '#f87171' }}
+                    onClick={() => router.push('/admin/grade')}
+                  >
+                    前往批改後台 →
+                  </button>
+                </div>
+              )}
+
+              {/* 考生本月任務提示條 */}
               {showExamineeContent && (
                 <div className={`${styles.npcNoticeInline} ${hasSubmittedThisMonth && !hasEssayLock ? styles.noticeSuccess : ''}`}>
                   <span className={styles.noticeIconInline}>
@@ -208,9 +278,9 @@ export default function HomePage() {
                   {sysSettings.essayQuestionCount} 題 · 每題 {formatTimeText(sysSettings.essayTimePerQuestion)} · 主管人工審核
                 </p>
                 <ul className={styles.modeFeatures}>
-                  <li>📋 主管針對應答進行評分與評語</li>
-                  <li>🔒 一次只能進行一場申論考試</li>
-                  <li>📅 批改完成後解鎖並通知成果</li>
+                  <li>📋 主管針對應答逐題評分、評語與通知</li>
+                  <li>🔒 一次只能進行一場申論考試（含待審中）</li>
+                  <li>🚫 作答時嚴禁查閱外部文件、講義與搜尋引擎</li>
                 </ul>
                 <button
                   id="btn-start-essay"

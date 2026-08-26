@@ -79,7 +79,7 @@
 }
 
 .sidebar {
-  width: 320px;
+  width: 330px;
   background: rgba(22, 33, 62, 0.7);
   border-right: 3px solid var(--color-dark-border);
   display: flex;
@@ -102,6 +102,7 @@
   gap: var(--space-3);
   overflow-y: auto;
   flex: 1;
+  padding: 4px 6px 4px 4px;
 }
 
 .examCard {
@@ -112,11 +113,12 @@
   transition: all var(--transition-snap);
   cursor: pointer;
   color: inherit;
+  box-sizing: border-box;
 }
 
 .examCard:hover {
   border-color: var(--color-sky-blue);
-  transform: translateX(4px);
+  transform: translateY(-2px);
 }
 
 .examCardActive {

@@ -16,11 +16,13 @@ import {
   saveExamSession
 } from '@/lib/examSession'
 import { useAuth } from '@/contexts/AuthContext'
-import { getPendingExamsFirestore, gradeExamFirestore, getUserExamsFirestore, CloudExamDoc } from '@/lib/examStore'
+import { getPendingExamsFirestore, gradeExamFirestore, getUserExamsFirestore, getAllExamsFirestore, updateExamStatusFirestore, subscribePendingExams, CloudExamDoc } from '@/lib/examStore'
 import { addHistoryRecord } from '@/lib/historyStore'
 import { getSystemSettings } from '@/lib/settingsStore'
 
 import ConfirmModal from '@/components/ConfirmModal'
+
+import { useSearchParams } from 'next/navigation'
 
 // 定義通用後台考卷型別（包含申論與綜合模式）
 export interface PendingExamItem {
@@ -30,7 +32,7 @@ export interface PendingExamItem {
   displayName: string
   email: string
   submittedAt: string
-  status: 'submitted' | 'graded' | 'in_progress'
+  status: 'submitted' | 'graded' | 'shelved' | 'in_progress'
   totalScore?: number  // 0-100（若已批改）
   choiceScore?: number // 綜合模式專用：選擇題得分
   passed?: boolean     // 是否通過
@@ -50,12 +52,16 @@ const INITIAL_MOCK_PENDING_EXAMS: PendingExamItem[] = []
 
 export default function AdminGradePage() {
   const { userDoc } = useAuth()
+  const searchParams = useSearchParams()
+  const targetExamId = searchParams.get('examId')
+
   const [exams, setExams] = useState<PendingExamItem[]>([])
   const [loadingPending, setLoadingPending] = useState(true)
-  const [selectedExamId, setSelectedExamId] = useState<string | null>(null)
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(targetExamId)
   const [filterMode, setFilterMode] = useState<'all' | 'quiz' | 'essay'>('all')
+  const [statusTab, setStatusTab] = useState<'submitted' | 'graded' | 'shelved'>('submitted')
   const [passThresholds, setPassThresholds] = useState({ quiz: 90, essay: 90 })
-  
+
   // 正在批改的分數與評語暫存 state (key: questionId)
   const [gradingScores, setGradingScores] = useState<Record<string, number>>({})
   const [gradingComments, setGradingComments] = useState<Record<string, string>>({})
@@ -63,21 +69,22 @@ export default function AdminGradePage() {
   // Toast 或成功訊息通知
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  // 從 Firestore 實時載入待批改考卷
+  // 從 Firestore 實時載入待批改/已批改/已擱置考卷
   const fetchPendingExams = async () => {
     setLoadingPending(true)
-    const cloudList = await getPendingExamsFirestore()
+    const cloudList = await getAllExamsFirestore()
     const formatted: PendingExamItem[] = cloudList.map((e) => {
-      // 保持全體答題紀錄，供批改完成重新寫入時完整保護選擇題與問答題正解紀錄
       return {
         examId: e.id,
         mode: e.mode,
         uid: e.uid,
         displayName: e.displayName,
         email: e.userEmail,
-        submittedAt: e.submittedAt?.toLocaleDateString ? e.submittedAt.toLocaleDateString() : '最近提交',
-        status: e.status,
+        submittedAt: e.submittedAt?.toISOString ? e.submittedAt.toISOString() : (e.submittedAt instanceof Date ? e.submittedAt.toISOString() : (e.submittedAt ? String(e.submittedAt) : '')),
+        status: e.status || 'submitted',
+        totalScore: e.score || 0,
         choiceScore: e.choiceScore || 0,
+        passed: e.passed,
         answers: e.answers.map((a) => ({
           questionId: a.questionId,
           userAnswer: a.userAnswer,
@@ -90,9 +97,18 @@ export default function AdminGradePage() {
       }
     })
     setExams(formatted)
-    if (formatted.length > 0) {
-      setSelectedExamId((prev) => prev || formatted[0].examId)
+
+    // 若 URL 帶有 targetExamId，自動切換相對應的 statusTab 與 selectedExamId
+    if (targetExamId) {
+      const matchExam = formatted.find(e => e.examId === targetExamId)
+      if (matchExam) {
+        if (matchExam.status === 'graded' || matchExam.status === 'shelved' || matchExam.status === 'submitted') {
+          setStatusTab(matchExam.status)
+        }
+        setSelectedExamId(matchExam.examId)
+      }
     }
+
     setLoadingPending(false)
   }
 
@@ -106,10 +122,33 @@ export default function AdminGradePage() {
       })
     }
     loadSettings()
+
+    // 實時監聽待批改考卷變動，有新交卷時自動刷新列表
+    const unsubscribe = subscribePendingExams(() => {
+      fetchPendingExams()
+    })
+
+    return () => unsubscribe()
   }, [])
 
-  // 篩選考卷
-  const filteredExams = exams.filter(e => filterMode === 'all' || e.mode === filterMode)
+  // 根據 mode 與 statusTab 篩選考卷
+  const filteredExams = exams.filter(e => {
+    const matchMode = filterMode === 'all' || e.mode === filterMode
+    const matchStatus = e.status === statusTab
+    return matchMode && matchStatus
+  })
+
+  // 自動為切換 tab 選擇第一張考卷（若有 URL 定位 targetExamId 且符合目前 tab 則優先保留）
+  useEffect(() => {
+    if (filteredExams.length > 0) {
+      if (!filteredExams.some(e => e.examId === selectedExamId)) {
+        setSelectedExamId(filteredExams[0].examId)
+      }
+    } else {
+      setSelectedExamId(null)
+    }
+  }, [statusTab, filterMode, exams])
+
   const currentExam = exams.find(e => e.examId === selectedExamId)
 
   useEffect(() => {
@@ -136,13 +175,56 @@ export default function AdminGradePage() {
     setGradingComments(prev => ({ ...prev, [qId]: text }))
   }
 
+  const handleQuickCorrectToggle = (qId: string, checked: boolean) => {
+    const maxScore = currentExam?.mode === 'quiz' ? 5 : 10
+    if (checked) {
+      setGradingComments(prev => ({ ...prev, [qId]: '正確' }))
+      setGradingScores(prev => ({ ...prev, [qId]: maxScore }))
+    } else {
+      if (gradingComments[qId] === '正確') {
+        setGradingComments(prev => ({ ...prev, [qId]: '' }))
+      }
+    }
+  }
+
   const [isSubmittingGrade, setIsSubmittingGrade] = useState(false)
   const [showGradeConfirmModal, setShowGradeConfirmModal] = useState(false)
   const [pendingTotalScore, setPendingTotalScore] = useState(0)
 
-
   const [showWarningModal, setShowWarningModal] = useState(false)
   const [warningMessage, setWarningMessage] = useState('')
+
+  // 暫時不批改/擱置考卷功能
+  const handleShelveExam = async () => {
+    if (!currentExam || isSubmittingGrade) return
+    setIsSubmittingGrade(true)
+    try {
+      await updateExamStatusFirestore(currentExam.examId, 'shelved')
+      showToast(`📦 考卷（${currentExam.displayName}）已暫時擱置，不顯示在待批改列表。`)
+      await fetchPendingExams()
+    } catch (e: any) {
+      console.error('Failed to shelve exam:', e)
+      alert(`⚠️ 擱置失敗：${e?.message || '網路異常'}`)
+    } finally {
+      setIsSubmittingGrade(false)
+    }
+  }
+
+  // 從已擱置或已批改恢復至待批改
+  const handleUnshelveExam = async () => {
+    if (!currentExam || isSubmittingGrade) return
+    setIsSubmittingGrade(true)
+    try {
+      await updateExamStatusFirestore(currentExam.examId, 'submitted')
+      showToast(`🔄 考卷（${currentExam.displayName}）已移回待批改清單。`)
+      await fetchPendingExams()
+    } catch (e: any) {
+      console.error('Failed to unshelve exam:', e)
+      alert(`⚠️ 移回失敗：${e?.message || '網路異常'}`)
+    } finally {
+      setIsSubmittingGrade(false)
+    }
+  }
 
   const handleOpenGradeConfirm = () => {
     if (!currentExam) return
@@ -156,7 +238,7 @@ export default function AdminGradePage() {
       const qId = targetAnswers[i].questionId
       const cText = (gradingComments[qId] ?? '').trim()
       if (!cText) {
-        setWarningMessage(`⚠️ 評語填寫不完整！\n\n第 ${i + 1} 題（ID: ${qId}）尚未填寫評語與指導建議。\n為維護考核品質，請補齊所有題目評語後再送出批改！`)
+        setWarningMessage(`⚠️ 評語填寫不完整！\n\n第 ${i + 1} 題（ID: ${qId}）尚未填寫評語與指導建議。\n為維護考核品質，請補齊所有題目評語或勾選快捷「正確」後再送出批改！`)
         setShowWarningModal(true)
         return
       }
@@ -267,54 +349,120 @@ export default function AdminGradePage() {
         </div>
       )}
 
-      {/* 主內容區：左側待批改清單，右側作答詳情與評分 */}
+      {/* 主內容區：左側考卷清單，右側作答詳情與評分 */}
       <div className={styles.mainLayout}>
         {/* 左側考卷列表 */}
         <aside className={styles.sidebar}>
+          {/* 頂部 Tab 切換：待批改 / 已批改 / 已擱置 */}
+          <div className={styles.tabGroup} style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+            <button
+              className={`${styles.tabBtn} ${statusTab === 'submitted' ? styles.tabBtnActive : ''}`}
+              onClick={() => setStatusTab('submitted')}
+              style={{
+                flex: 1,
+                padding: '6px 4px',
+                fontSize: 12,
+                cursor: 'pointer',
+                background: statusTab === 'submitted' ? '#f4a24a' : '#1e293b',
+                color: statusTab === 'submitted' ? '#000' : '#fff',
+                border: '1px solid #f4a24a',
+                fontWeight: 'bold',
+                borderRadius: 4
+              }}
+            >
+              ⏳ 待批改 ({exams.filter(e => e.status === 'submitted' && (filterMode === 'all' || e.mode === filterMode)).length})
+            </button>
+            <button
+              className={`${styles.tabBtn} ${statusTab === 'graded' ? styles.tabBtnActive : ''}`}
+              onClick={() => setStatusTab('graded')}
+              style={{
+                flex: 1,
+                padding: '6px 4px',
+                fontSize: 12,
+                cursor: 'pointer',
+                background: statusTab === 'graded' ? '#4ade80' : '#1e293b',
+                color: statusTab === 'graded' ? '#000' : '#fff',
+                border: '1px solid #4ade80',
+                fontWeight: 'bold',
+                borderRadius: 4
+              }}
+            >
+              ✅ 已批改 ({exams.filter(e => e.status === 'graded' && (filterMode === 'all' || e.mode === filterMode)).length})
+            </button>
+            <button
+              className={`${styles.tabBtn} ${statusTab === 'shelved' ? styles.tabBtnActive : ''}`}
+              onClick={() => setStatusTab('shelved')}
+              style={{
+                flex: 1,
+                padding: '6px 4px',
+                fontSize: 12,
+                cursor: 'pointer',
+                background: statusTab === 'shelved' ? '#a855f7' : '#1e293b',
+                color: statusTab === 'shelved' ? '#fff' : '#fff',
+                border: '1px solid #a855f7',
+                fontWeight: 'bold',
+                borderRadius: 4
+              }}
+            >
+              📦 已擱置 ({exams.filter(e => e.status === 'shelved' && (filterMode === 'all' || e.mode === filterMode)).length})
+            </button>
+          </div>
+
           <div className={styles.sidebarTitleRow} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h2 className={styles.sidebarTitle} style={{ margin: 0 }}>📋 待批改考卷</h2>
+            <h2 className={styles.sidebarTitle} style={{ margin: 0, fontSize: '0.95rem' }}>
+              {statusTab === 'submitted' ? '📋 待批改考卷' : statusTab === 'graded' ? '查閱已批改考卷' : '📦 已擱置考卷'}
+            </h2>
             <select
               value={filterMode}
               onChange={(e) => setFilterMode(e.target.value as any)}
-              style={{ background: '#1c2237', color: '#fff', border: '1px solid #4a6fa5', padding: '4px 8px', borderRadius: 4, cursor: 'pointer' }}
+              style={{ background: '#1c2237', color: '#fff', border: '1px solid #4a6fa5', padding: '4px 6px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}
             >
               <option value="all">全部模式</option>
-              <option value="quiz">綜合模式 (Quiz)</option>
-              <option value="essay">申論模式 (Essay)</option>
+              <option value="quiz">綜合模式</option>
+              <option value="essay">申論模式</option>
             </select>
           </div>
+
           <div className={styles.examList}>
-            {filteredExams.map(exam => {
-              const isSelected = exam.examId === selectedExamId
-              return (
-                <button
-                  key={exam.examId}
-                  className={`${styles.examCard} ${isSelected ? styles.examCardActive : ''}`}
-                  onClick={() => setSelectedExamId(exam.examId)}
-                >
-                  <div className={styles.cardHeader}>
-                    <span className={styles.examineeName}>
-                      {exam.mode === 'quiz' ? '🎯 [綜合] ' : '📜 [申論] '}
-                      {exam.displayName}
-                    </span>
-                    <span className={`${styles.statusBadge} ${styles[exam.status]}`}>
-                      {exam.status === 'submitted' ? '⏳ 待批改' : '✅ 已批改'}
-                    </span>
-                  </div>
-                  <div className={styles.cardMeta}>
-                    <span>提交時間：{new Date(exam.submittedAt).toLocaleString('zh-TW')}</span>
-                    {exam.mode === 'quiz' && (
-                      <span style={{ display: 'block', fontSize: 12, color: '#a0aec0', marginTop: 2 }}>
-                        選擇題得分：{exam.choiceScore ?? 0} 分
+            {loadingPending ? (
+              <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 13, marginTop: 20 }}>載入雲端考卷中...</p>
+            ) : filteredExams.length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 13, marginTop: 20 }}>
+                {statusTab === 'submitted' ? '無待批改考卷' : statusTab === 'graded' ? '無已批改紀錄' : '無擱置中的考卷'}
+              </p>
+            ) : (
+              filteredExams.map(exam => {
+                const isSelected = exam.examId === selectedExamId
+                return (
+                  <button
+                    key={exam.examId}
+                    className={`${styles.examCard} ${isSelected ? styles.examCardActive : ''}`}
+                    onClick={() => setSelectedExamId(exam.examId)}
+                  >
+                    <div className={styles.cardHeader}>
+                      <span className={styles.examineeName}>
+                        {exam.mode === 'quiz' ? '🎯 [綜合] ' : '📜 [申論] '}
+                        {exam.displayName}
                       </span>
-                    )}
-                    {exam.status === 'graded' && (
-                      <span className={styles.scoreText}>總分：{exam.totalScore} 分</span>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
+                      <span className={`${styles.statusBadge} ${styles[exam.status]}`}>
+                        {exam.status === 'submitted' ? '⏳ 待批改' : exam.status === 'graded' ? '✅ 已批改' : '📦 擱置'}
+                      </span>
+                    </div>
+                    <div className={styles.cardMeta}>
+                      <span>提交時間：{exam.submittedAt && !isNaN(new Date(exam.submittedAt).getTime()) ? new Date(exam.submittedAt).toLocaleString('zh-TW', { hour12: false }) : '最近提交'}</span>
+                      {exam.mode === 'quiz' && (
+                        <span style={{ display: 'block', fontSize: 12, color: '#a0aec0', marginTop: 2 }}>
+                          選擇題得分：{exam.choiceScore ?? 0} 分
+                        </span>
+                      )}
+                      {exam.status === 'graded' && (
+                        <span className={styles.scoreText}>總分：{exam.totalScore} 分</span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })
+            )}
           </div>
         </aside>
 
@@ -322,7 +470,7 @@ export default function AdminGradePage() {
         <section className={styles.detailSection}>
           {!currentExam ? (
             <div className={styles.emptyState}>
-              <p>請選擇左側的考卷進行批改</p>
+              <p>請選擇左側的考卷進行查閱或批改</p>
             </div>
           ) : (
             <div className={styles.detailPanel}>
@@ -335,7 +483,7 @@ export default function AdminGradePage() {
                   <p className={styles.subDetail}>
                     考卷 ID: {currentExam.examId} | 狀態：
                     <span className={`${styles.statusText} ${styles[currentExam.status]}`}>
-                      {currentExam.status === 'submitted' ? '等待主管審核評分' : `已批改 (${currentExam.totalScore}分 / ${currentExam.passed ? '通過' : '未通過'})`}
+                      {currentExam.status === 'submitted' ? '等待主管審核評分' : currentExam.status === 'graded' ? `已批改 (${currentExam.totalScore}分 / ${currentExam.passed ? '通過' : '未通過'})` : '📦 暫時擱置中'}
                     </span>
                     {currentExam.mode === 'quiz' && (
                       <span style={{ marginLeft: 12, color: '#68d391' }}>
@@ -344,13 +492,65 @@ export default function AdminGradePage() {
                     )}
                   </p>
                 </div>
-                <button
-                  className="btn-pixel btn-primary"
-                  onClick={handleOpenGradeConfirm}
-                  disabled={isSubmittingGrade}
-                >
-                  {isSubmittingGrade ? '🚀 批改儲存中...' : currentExam.status === 'submitted' ? '💾 送出評分與評語' : '💾 更新評分資料'}
-                </button>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
+                  {currentExam.status === 'submitted' && (
+                    <button
+                      className="btn-pixel"
+                      style={{
+                        background: '#7e22ce',
+                        color: '#fff',
+                        border: '2px solid #a855f7',
+                        padding: '8px 16px',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onClick={handleShelveExam}
+                      disabled={isSubmittingGrade}
+                    >
+                      📦 暫時擱置
+                    </button>
+                  )}
+                  {(currentExam.status === 'shelved' || currentExam.status === 'graded') && (
+                    <button
+                      className="btn-pixel"
+                      style={{
+                        background: '#0284c7',
+                        color: '#fff',
+                        border: '2px solid #38bdf8',
+                        padding: '8px 16px',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onClick={handleUnshelveExam}
+                      disabled={isSubmittingGrade}
+                    >
+                      🔄 移回待批改
+                    </button>
+                  )}
+                  <button
+                    className="btn-pixel btn-primary"
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '0.85rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onClick={handleOpenGradeConfirm}
+                    disabled={isSubmittingGrade}
+                  >
+                    {isSubmittingGrade ? '🚀 批改儲存中...' : currentExam.status === 'submitted' ? '💾 送出評分與評語' : '💾 更新評分與評語'}
+                  </button>
+                </div>
               </div>
 
               {/* 每題作答詳情與評分輸入 */}
@@ -368,6 +568,7 @@ export default function AdminGradePage() {
                   const maxScorePerQ = currentExam.mode === 'quiz' ? 5 : 10
                   const score = gradingScores[ans.questionId] ?? (currentExam.mode === 'quiz' ? 5 : 8)
                   const comment = gradingComments[ans.questionId] ?? ''
+                  const isQuickCorrect = comment.trim() === '正確' && score === maxScorePerQ
 
                   return (
                     <div key={ans.questionId} className={styles.questionCard}>
@@ -406,6 +607,20 @@ export default function AdminGradePage() {
 
                       {/* 主管評分與評語輸入區 */}
                       <div className={styles.gradingBox}>
+                        {/* 快捷勾選選項 */}
+                        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(74, 222, 128, 0.1)', padding: '6px 12px', border: '1px solid rgba(74, 222, 128, 0.3)', borderRadius: 4 }}>
+                          <input
+                            type="checkbox"
+                            id={`quick-correct-${ans.questionId}`}
+                            checked={isQuickCorrect}
+                            onChange={(e) => handleQuickCorrectToggle(ans.questionId, e.target.checked)}
+                            style={{ width: 16, height: 16, cursor: 'pointer' }}
+                          />
+                          <label htmlFor={`quick-correct-${ans.questionId}`} style={{ color: '#4ade80', fontWeight: 'bold', fontSize: 14, cursor: 'pointer' }}>
+                            ⚡ 快捷選項：評語填寫「正確」並給予滿分 ({maxScorePerQ}分)
+                          </label>
+                        </div>
+
                         <div className={styles.scoreRow}>
                           <label className={styles.scoreLabel}>
                             🎯 主管給分 (0 - {maxScorePerQ} 分)：
@@ -456,7 +671,7 @@ export default function AdminGradePage() {
                   onClick={handleOpenGradeConfirm}
                   disabled={isSubmittingGrade}
                 >
-                  {isSubmittingGrade ? '🚀 批改儲存中...' : '🚀 確認完成批改並寫入成績'}
+                  {isSubmittingGrade ? '🚀 批改儲存中...' : currentExam.status === 'submitted' ? '🚀 確認完成批改並寫入成績' : '💾 更新批改與成績'}
                 </button>
               </div>
 
@@ -495,3 +710,4 @@ export default function AdminGradePage() {
     </div>
   )
 }
+
