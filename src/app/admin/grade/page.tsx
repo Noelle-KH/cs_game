@@ -161,6 +161,7 @@ function AdminGradeContent() {
 
   const currentExam = exams.find(e => e.examId === selectedExamId)
 
+  // 當切換選取的考卷 ID 時才重置打分與評語（避免背景實時同步考卷列表時把主管寫到一半的內容蓋掉）
   useEffect(() => {
     if (!currentExam) return
     const initialScores: Record<string, number> = {}
@@ -173,7 +174,7 @@ function AdminGradeContent() {
 
     setGradingScores(initialScores)
     setGradingComments(initialComments)
-  }, [selectedExamId, currentExam])
+  }, [selectedExamId])
 
   const handleScoreChange = (qId: string, val: number) => {
     const maxVal = currentExam?.mode === 'quiz' ? 5 : 10
