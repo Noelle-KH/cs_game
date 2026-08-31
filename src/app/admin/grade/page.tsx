@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import styles from './grade.module.css'
 import {
@@ -148,8 +148,42 @@ function AdminGradeContent() {
     return matchMode && matchStatus
   })
 
+  // 用於控制詳細內頁區域滾動置頂
+  const detailSectionRef = useRef<HTMLDivElement>(null)
+  const [showScrollTop, setShowScrollTop] = useState(false)
+
+  const scrollToTop = () => {
+    if (detailSectionRef.current) {
+      detailSectionRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    const handleWinScroll = () => {
+      const winY = window.scrollY || document.documentElement.scrollTop
+      const sectionY = detailSectionRef.current?.scrollTop || 0
+      setShowScrollTop(winY > 100 || sectionY > 100)
+    }
+
+    window.addEventListener('scroll', handleWinScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleWinScroll)
+  }, [])
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const sectionY = e.currentTarget.scrollTop
+    const winY = window.scrollY || document.documentElement.scrollTop
+    setShowScrollTop(winY > 100 || sectionY > 100)
+  }
+
+  // 紀錄主管是否手動取消選擇，避免每次 exams/statusTab 更新時又自動跳選第一張
+  const isManuallyClearedRef = useRef(false)
+
   // 自動為切換 tab 選擇第一張考卷（若有 URL 定位 targetExamId 且符合目前 tab 則優先保留）
   useEffect(() => {
+    if (isManuallyClearedRef.current) {
+      return
+    }
     if (filteredExams.length > 0) {
       if (!filteredExams.some(e => e.examId === selectedExamId)) {
         setSelectedExamId(filteredExams[0].examId)
@@ -158,6 +192,12 @@ function AdminGradeContent() {
       setSelectedExamId(null)
     }
   }, [statusTab, filterMode, exams])
+
+  // 當主管手動切換狀態 Tab 時，重置手動清除標記
+  const handleStatusTabChange = (tab: 'submitted' | 'graded' | 'shelved') => {
+    isManuallyClearedRef.current = false
+    setStatusTab(tab)
+  }
 
   const currentExam = exams.find(e => e.examId === selectedExamId)
 
@@ -478,7 +518,7 @@ function AdminGradeContent() {
         </aside>
 
         {/* 右側詳細作答與評分面板 */}
-        <section className={styles.detailSection}>
+        <section ref={detailSectionRef} onScroll={handleScroll} className={styles.detailSection}>
           {!currentExam ? (
             <div className={styles.emptyState}>
               <p>請選擇左側的考卷進行查閱或批改</p>
@@ -487,23 +527,31 @@ function AdminGradeContent() {
             <div className={styles.detailPanel}>
               {/* 考卷頭部資訊 */}
               <div className={styles.panelHeader}>
-                <div>
-                  <h2 className={styles.examineeTitle}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h2 className={styles.examineeTitle} style={{ wordBreak: 'break-all' }}>
                     {currentExam.mode === 'quiz' ? '🎯 綜合模式考卷' : '📜 申論模式考卷'} — {currentExam.displayName} ({currentExam.email})
                   </h2>
-                  <p className={styles.subDetail}>
-                    考卷 ID: {currentExam.examId} | 狀態：
-                    <span className={`${styles.statusText} ${styles[currentExam.status]}`}>
-                      {currentExam.status === 'submitted' ? '等待主管審核評分' : currentExam.status === 'graded' ? `已批改 (${currentExam.totalScore}分 / ${currentExam.passed ? '通過' : '未通過'})` : '📦 暫時擱置中'}
+                  <div className={styles.subDetail} style={{ marginTop: 6, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ color: '#cbd5e1' }}>考卷 ID: {currentExam.examId}</span>
+                    <span style={{ color: '#475569' }}>|</span>
+                    <span style={{ color: '#cbd5e1' }}>
+                      狀態：
+                      <span className={`${styles.statusText} ${styles[currentExam.status]}`}>
+                        {currentExam.status === 'submitted' ? '等待主管審核評分' : currentExam.status === 'graded' ? `已批改 (${currentExam.totalScore}分 / ${currentExam.passed ? '通過' : '未通過'})` : '📦 暫時擱置中'}
+                      </span>
                     </span>
                     {currentExam.mode === 'quiz' && (
-                      <span style={{ marginLeft: 12, color: '#68d391' }}>
-                        （選擇題已得分：{currentExam.choiceScore ?? 0} 分）
-                      </span>
+                      <>
+                        <span style={{ color: '#475569' }}>|</span>
+                        <span style={{ color: '#4ade80', fontWeight: 'bold' }}>
+                          選擇題得分：{currentExam.choiceScore ?? 0} / 45 分
+                        </span>
+                      </>
                     )}
-                  </p>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 16, flexShrink: 0 }}>
                   {currentExam.status === 'submitted' && (
                     <button
                       className="btn-pixel"
@@ -566,14 +614,108 @@ function AdminGradeContent() {
 
               {/* 每題作答詳情與評分輸入 */}
               <div className={styles.questionsContainer}>
-                {currentExam.answers
-                  .filter(a => currentExam.mode === 'essay' || a.questionDoc?.type === 'qa' || (!a.questionDoc && a.questionId.includes('qa')))
-                  .map((ans, idx) => {
+                {currentExam.answers.map((ans, idx) => {
                   const qData = ans.questionDoc || MOCK_ESSAY_QUESTIONS_MAP[ans.questionId] || {
                     content: `題目 (ID: ${ans.questionId})`,
                     context: '',
                     difficulty: 'medium',
                     answer: ''
+                  }
+
+                  const isChoice = currentExam.mode === 'quiz' && qData && qData.type !== 'qa' && !ans.questionId.includes('qa')
+
+                  // 選擇題卡片展示
+                  if (isChoice) {
+                    const isExpiredOrEmptyChoice = !ans.userAnswer || ans.userAnswer === '(未填寫)' || ans.userAnswer === '(超時未答)' || ans.timeExpired
+                    return (
+                      <div
+                        key={ans.questionId}
+                        className={styles.questionCard}
+                        style={{ opacity: 0.95 }}
+                      >
+                        <div className={styles.qHeader}>
+                          <span className={styles.qIndex}>第 {idx + 1} 題【選擇題 - 自動評分】</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 13, color: ans.isCorrect ? '#4ade80' : '#f87171', fontWeight: 'bold' }}>
+                              {ans.isCorrect ? '✅ 答對 (+得分)' : '❌ 答錯 (0分)'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {qData.context && (
+                          <div className={styles.qContext}>
+                            <strong>📌 題目情境：</strong> {qData.context}
+                          </div>
+                        )}
+
+                        <div className={styles.qContent}>
+                          <strong>問：</strong>{qData.content}
+                        </div>
+
+                        {/* 選擇題選項清單 (A, B, C, D) */}
+                        {qData.options && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8, margin: '12px 0' }}>
+                            {(Object.entries(qData.options) as [string, string][]).map(([key, text]) => {
+                              const isUserOption = ans.userAnswer === key
+                              const isCorrectOption = qData.answer === key
+                              return (
+                                <div
+                                  key={key}
+                                  style={{
+                                    padding: '8px 12px',
+                                    borderRadius: 4,
+                                    fontSize: 13,
+                                    border: isCorrectOption
+                                      ? '2px solid #22c55e'
+                                      : isUserOption
+                                      ? '2px solid #ef4444'
+                                      : '1px solid #334155',
+                                    background: isCorrectOption
+                                      ? 'rgba(34, 197, 94, 0.15)'
+                                      : isUserOption
+                                      ? 'rgba(239, 68, 68, 0.15)'
+                                      : '#0f172a',
+                                    color: isCorrectOption
+                                      ? '#4ade80'
+                                      : isUserOption
+                                      ? '#f87171'
+                                      : '#cbd5e1',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6
+                                  }}
+                                >
+                                  <strong style={{ minWidth: 16 }}>{key}.</strong>
+                                  <span style={{ flex: 1 }}>{text}</span>
+                                  {isCorrectOption && <span style={{ fontSize: 11, background: '#15803d', color: '#fff', padding: '1px 5px', borderRadius: 2 }}>✅ 正解</span>}
+                                  {isUserOption && !isCorrectOption && <span style={{ fontSize: 11, background: '#b91c1c', color: '#fff', padding: '1px 5px', borderRadius: 2 }}>❌ 考生選擇</span>}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        <div
+                          className={styles.userAnswerBox}
+                          style={{
+                            border: isExpiredOrEmptyChoice ? '1px solid #ef4444' : '1px solid #1e293b',
+                            background: isExpiredOrEmptyChoice ? 'rgba(239, 68, 68, 0.08)' : '#111827',
+                            marginTop: 8
+                          }}
+                        >
+                          <div className={styles.answerBoxLabel} style={{ color: isExpiredOrEmptyChoice ? '#f87171' : '#9ca3af' }}>
+                            考生選擇答案：
+                          </div>
+                          <div className={styles.userAnswerText} style={{ color: isExpiredOrEmptyChoice ? '#f87171' : '#e5e7eb' }}>
+                            {isExpiredOrEmptyChoice ? (
+                              <span style={{ color: '#f87171' }}>作答超時未選擇答案</span>
+                            ) : (
+                              `${ans.userAnswer}${qData.options?.[ans.userAnswer as 'A'|'B'|'C'|'D'] ? ` (${qData.options[ans.userAnswer as 'A'|'B'|'C'|'D']})` : ''}`
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
                   }
 
                   const maxScorePerQ = currentExam.mode === 'quiz' ? 5 : 10
@@ -609,12 +751,29 @@ function AdminGradeContent() {
                       )}
 
                       {/* 考生答案 */}
-                      <div className={styles.userAnswerBox}>
-                        <div className={styles.answerBoxLabel}>💬 考生作答內容：</div>
-                        <div className={styles.userAnswerText}>
-                          {ans.userAnswer || <span className={styles.noAnswer}>（未輸入答案，直接提交）</span>}
-                        </div>
-                      </div>
+                      {(() => {
+                        const isExpiredOrEmpty = !ans.userAnswer || ans.userAnswer === '(超時未答)' || ans.timeExpired
+                        return (
+                          <div
+                            className={styles.userAnswerBox}
+                            style={{
+                              border: isExpiredOrEmpty ? '1px solid #ef4444' : undefined,
+                              background: isExpiredOrEmpty ? 'rgba(239, 68, 68, 0.08)' : undefined
+                            }}
+                          >
+                            <div className={styles.answerBoxLabel} style={{ color: isExpiredOrEmpty ? '#f87171' : undefined }}>
+                              考生作答內容：
+                            </div>
+                            <div className={styles.userAnswerText}>
+                              {isExpiredOrEmpty ? (
+                                <span style={{ color: '#f87171' }}>作答超時未填寫答案</span>
+                              ) : (
+                                ans.userAnswer
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
 
                       {/* 主管評分與評語輸入區 */}
                       <div className={styles.gradingBox}>
@@ -717,6 +876,17 @@ function AdminGradeContent() {
             </div>
           )}
         </section>
+
+        {/* 右下角 Top 回頂部懸浮按鈕 */}
+        {showScrollTop && (
+          <button
+            onClick={scrollToTop}
+            className={styles.scrollTopBtn}
+            title="回到頂部"
+          >
+            ⬆️ 頂部
+          </button>
+        )}
       </div>
     </div>
   )

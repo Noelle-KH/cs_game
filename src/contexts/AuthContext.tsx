@@ -99,9 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 判斷是否為 Admin Email
   function checkIsAdmin(email?: string | null): boolean {
     if (!email) return false
-    const envEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'admin@example.com,manager@example.com')
+    const envEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
       .split(',')
       .map(e => e.trim().toLowerCase())
+      .filter(Boolean)
     
     let localEmails: string[] = []
     if (typeof window !== 'undefined') {
@@ -118,9 +119,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 判斷是否為 Supervisor (主管) Email
   function checkIsSupervisor(email?: string | null): boolean {
     if (!email) return false
-    const envSupervisorEmails = (process.env.NEXT_PUBLIC_SUPERVISOR_EMAILS || 'supervisor@example.com')
+    const envSupervisorEmails = (process.env.NEXT_PUBLIC_SUPERVISOR_EMAILS || '')
       .split(',')
       .map(e => e.trim().toLowerCase())
+      .filter(Boolean)
     
     let localSupervisorEmails: string[] = []
     if (typeof window !== 'undefined') {

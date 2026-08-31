@@ -38,24 +38,54 @@ export default function AdminSettingsPage() {
       router.replace('/')
     }
 
-    // 載入預設的 Admin / Supervisor Emails
-    const envAdmin = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || 'admin@example.com')
+    // 載入預設的 Admin / Supervisor Emails 並從 Firestore users 實時同步
+    const envAdmin = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
       .split(',')
-      .map(e => e.trim())
-    const envSupervisor = (process.env.NEXT_PUBLIC_SUPERVISOR_EMAILS || 'supervisor@example.com,manager@example.com')
+      .map(e => e.trim().toLowerCase())
+      .filter(Boolean)
+    const envSupervisor = (process.env.NEXT_PUBLIC_SUPERVISOR_EMAILS || '')
       .split(',')
-      .map(e => e.trim())
-    
-    if (typeof window !== 'undefined') {
-      const storedAdmin = localStorage.getItem('cs_admin_emails')
-      const storedSupervisor = localStorage.getItem('cs_supervisor_emails')
-      
-      setAdminEmails(storedAdmin ? JSON.parse(storedAdmin) : envAdmin)
-      setSupervisorEmails(storedSupervisor ? JSON.parse(storedSupervisor) : envSupervisor)
-    }
+      .map(e => e.trim().toLowerCase())
+      .filter(Boolean)
 
-    // 載入雲端/本地系統參數設定
-    async function loadSettings() {
+    async function loadRolesAndSettings() {
+      let localAdmin: string[] = []
+      let localSupervisor: string[] = []
+
+      if (typeof window !== 'undefined') {
+        const storedAdmin = localStorage.getItem('cs_admin_emails')
+        const storedSupervisor = localStorage.getItem('cs_supervisor_emails')
+        if (storedAdmin) {
+          try { localAdmin = (JSON.parse(storedAdmin) as string[]).map(e => e.toLowerCase()) } catch {}
+        }
+        if (storedSupervisor) {
+          try { localSupervisor = (JSON.parse(storedSupervisor) as string[]).map(e => e.toLowerCase()) } catch {}
+        }
+      }
+
+      // 從 Firestore users 集合中即時查詢所有 role === 'admin' 和 role === 'supervisor' 的帳號 Email
+      let cloudAdminEmails: string[] = []
+      let cloudSupervisorEmails: string[] = []
+
+      try {
+        const adminQ = query(collection(db, 'users'), where('role', '==', 'admin'))
+        const adminSnap = await getDocs(adminQ)
+        cloudAdminEmails = adminSnap.docs.map(doc => doc.data().email).filter(Boolean).map(e => e.toLowerCase())
+
+        const supervisorQ = query(collection(db, 'users'), where('role', '==', 'supervisor'))
+        const supervisorSnap = await getDocs(supervisorQ)
+        cloudSupervisorEmails = supervisorSnap.docs.map(doc => doc.data().email).filter(Boolean).map(e => e.toLowerCase())
+      } catch (e) {
+        console.error('Failed to fetch cloud roles from Firestore:', e)
+      }
+
+      const mergedAdmin = Array.from(new Set([...envAdmin, ...localAdmin, ...cloudAdminEmails]))
+      const mergedSupervisor = Array.from(new Set([...envSupervisor, ...localSupervisor, ...cloudSupervisorEmails]))
+
+      setAdminEmails(mergedAdmin)
+      setSupervisorEmails(mergedSupervisor)
+
+      // 載入雲端/本地系統參數設定
       const s = await getSystemSettings()
       setQuizPassThreshold(s.quizPassThreshold ?? 90)
       setEssayPassThreshold(s.essayPassThreshold ?? 90)
@@ -65,7 +95,8 @@ export default function AdminSettingsPage() {
       setQaTimePerQuestion(s.qaTimePerQuestion ?? 300)
       setEssayTimePerQuestion(s.essayTimePerQuestion ?? 600)
     }
-    loadSettings()
+
+    loadRolesAndSettings()
   }, [loading, role, router])
 
   const handleAddEmail = async () => {
