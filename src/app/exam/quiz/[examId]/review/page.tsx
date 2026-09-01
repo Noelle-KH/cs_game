@@ -100,8 +100,17 @@ export default function ReviewPage({
   // 篩選（包含選擇題答錯與問答題未獲滿分者）
   const filtered = reviewed.filter((item) => {
     if (filter === 'wrong') {
-      // 只要不是答對 (isCorrect !== true) 或者是超時/答錯，均進入錯題
-      return item.ans.isCorrect === false || (item.q.type === 'choice' && item.ans.isCorrect !== true)
+      // 選擇題：非答對即算錯
+      if (item.q.type === 'choice') {
+        return item.ans.isCorrect !== true
+      }
+      // 問答題：評分低於滿分 (5分) 即納入錯題檢視
+      if (item.q.type === 'qa') {
+        const maxScore = 5
+        const score = item.ans.score
+        return score === undefined || score < maxScore
+      }
+      return item.ans.isCorrect === false
     }
     if (filter === 'expired') return item.ans.timeExpired
     return true
@@ -115,8 +124,15 @@ export default function ReviewPage({
   function getStatusLabel(item: { ans: ExamSessionAnswer; q: QuestionDoc }) {
     if (item.ans.timeExpired) return { text: '⏱️ 超時', cls: styles.statusExpired }
     if (item.q.type === 'qa') {
+      const maxScore = 5
       if (item.ans.score !== undefined) {
-        return { text: '✅ 已評分', cls: styles.statusCorrect }
+        if (item.ans.score >= maxScore) {
+          return { text: `💯 滿分 (${item.ans.score}分)`, cls: styles.statusCorrect }
+        } else if (item.ans.score > 0) {
+          return { text: `⚠️ 部分得分 (${item.ans.score}/${maxScore}分)`, cls: styles.statusPartial }
+        } else {
+          return { text: `❌ 0分`, cls: styles.statusWrong }
+        }
       }
       return { text: '⏳ 待主管審核', cls: styles.statusQa }
     }
@@ -138,6 +154,13 @@ export default function ReviewPage({
             ← 返回成績
           </button>
           <button
+            id="btn-profile-results"
+            className={`btn-pixel btn-ghost ${styles.backBtn}`}
+            onClick={() => router.push('/profile/results')}
+          >
+            📊 歷次成績與錯題記錄
+          </button>
+          <button
             id="btn-back-home"
             className={`btn-pixel btn-ghost ${styles.backBtn}`}
             onClick={() => router.push('/')}
@@ -147,16 +170,34 @@ export default function ReviewPage({
         </div>
         <span className={`pixel-title ${styles.navTitle}`}>🔍 錯題回顧</span>
         <div className={styles.filterGroup}>
-          {(['all', 'wrong', 'expired'] as ReviewFilter[]).map((f) => (
-            <button
-              key={f}
-              id={`btn-filter-${f}`}
-              className={`${styles.filterBtn} ${filter === f ? styles.filterActive : ''}`}
-              onClick={() => { setFilter(f); setSelectedIdx(0) }}
-            >
-              {f === 'all' ? `全部 (${reviewed.length})` : f === 'wrong' ? `答錯 (${reviewed.filter(i => i.ans.isCorrect === false).length})` : `超時 (${reviewed.filter(i => i.ans.timeExpired).length})`}
-            </button>
-          ))}
+          {(['all', 'wrong', 'expired'] as ReviewFilter[]).map((f) => {
+            const wrongCount = reviewed.filter((i) => {
+              if (i.q.type === 'choice') return i.ans.isCorrect !== true
+              if (i.q.type === 'qa') return i.ans.score === undefined || i.ans.score < 5
+              return i.ans.isCorrect === false
+            }).length
+
+            const countText =
+              f === 'all'
+                ? `全部 (${reviewed.length})`
+                : f === 'wrong'
+                ? `需檢討/非滿分 (${wrongCount})`
+                : `超時 (${reviewed.filter((i) => i.ans.timeExpired).length})`
+
+            return (
+              <button
+                key={f}
+                id={`btn-filter-${f}`}
+                className={`${styles.filterBtn} ${filter === f ? styles.filterActive : ''}`}
+                onClick={() => {
+                  setFilter(f)
+                  setSelectedIdx(0)
+                }}
+              >
+                {countText}
+              </button>
+            )
+          })}
         </div>
       </nav>
 
@@ -164,7 +205,7 @@ export default function ReviewPage({
         <div className={styles.emptyWrap}>
           <p className="pixel-title">🎉 這個分類沒有記錄！</p>
           <p className={styles.emptyHint}>
-            {filter === 'wrong' ? '選擇題全部答對，太厲害了！' : '沒有超時的題目。'}
+            {filter === 'wrong' ? '沒有需要檢討或非滿分的題目，太厲害了！' : '沒有超時的題目。'}
           </p>
           <button className="btn-pixel btn-ghost" onClick={() => setFilter('all')}>
             查看全部

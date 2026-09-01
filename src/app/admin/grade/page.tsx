@@ -21,6 +21,8 @@ import { addHistoryRecord } from '@/lib/historyStore'
 import { getSystemSettings } from '@/lib/settingsStore'
 
 import ConfirmModal from '@/components/ConfirmModal'
+import { getDocs, collection } from 'firebase/firestore'
+import { db } from '@/lib/firebase/client'
 
 import { useSearchParams } from 'next/navigation'
 
@@ -72,6 +74,12 @@ function AdminGradeContent() {
   const [statusTab, setStatusTab] = useState<'submitted' | 'graded' | 'shelved'>('submitted')
   const [passThresholds, setPassThresholds] = useState({ quiz: 90, essay: 90 })
 
+  // 篩選機制：月份與在職考生下拉篩選
+  const [selectedMonth, setSelectedMonth] = useState<string>('all')
+  const [selectedExamineeKey, setSelectedExamineeKey] = useState<string>('all')
+  const [availableMonths, setAvailableMonths] = useState<string[]>([])
+  const [activeExaminees, setActiveExaminees] = useState<{ key: string; displayName: string; email: string }[]>([])
+
   // 正在批改的分數與評語暫存 state (key: questionId)
   const [gradingScores, setGradingScores] = useState<Record<string, number>>({})
   const [gradingComments, setGradingComments] = useState<Record<string, string>>({})
@@ -82,30 +90,90 @@ function AdminGradeContent() {
   // 從 Firestore 實時載入待批改/已批改/已擱置考卷
   const fetchPendingExams = async () => {
     setLoadingPending(true)
+
+    // 1. 查出所有在職 (status !== 'resigned') 考生與已離職 (status === 'resigned') 考生
+    const resignedKeys = new Set<string>()
+    const examineeList: { key: string; displayName: string; email: string }[] = []
+    const examineeSet = new Set<string>()
+
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'))
+      usersSnap.forEach((uDoc) => {
+        const uData = uDoc.data()
+        const uid = uDoc.id
+        const email = (uData.email || '').toLowerCase()
+        const displayName = uData.displayName || '客服勇者'
+
+        if (uData.status === 'resigned') {
+          if (uid) resignedKeys.add(uid)
+          if (email) resignedKeys.add(email)
+        } else if (!uData.role || uData.role === 'examinee') {
+          // 僅搜集在職一般客服考生
+          const userKey = uid || email || displayName
+          if (!examineeSet.has(userKey)) {
+            examineeSet.add(userKey)
+            examineeList.push({
+              key: userKey,
+              displayName,
+              email: uData.email || '',
+            })
+          }
+        }
+      })
+    } catch (err) {
+      console.warn('Failed to fetch users for grade page filtering:', err)
+    }
+
+    setActiveExaminees(examineeList)
+
+    // 2. 加載雲端所有考卷
     const cloudList = await getAllExamsFirestore()
-    const formatted: PendingExamItem[] = cloudList.map((e) => {
-      return {
-        examId: e.id,
-        mode: e.mode,
-        uid: e.uid,
-        displayName: e.displayName,
-        email: e.userEmail,
-        submittedAt: e.submittedAt?.toISOString ? e.submittedAt.toISOString() : (e.submittedAt instanceof Date ? e.submittedAt.toISOString() : (e.submittedAt ? String(e.submittedAt) : '')),
-        status: e.status || 'submitted',
-        totalScore: e.score || 0,
-        choiceScore: e.choiceScore || 0,
-        passed: e.passed,
-        answers: e.answers.map((a) => ({
-          questionId: a.questionId,
-          userAnswer: a.userAnswer,
-          isCorrect: a.isCorrect,
-          timeExpired: false,
-          score: a.score || 0,
-          comment: a.feedback || '',
-          questionDoc: a.questionDoc,
-        })),
-      }
-    })
+    const monthSet = new Set<string>()
+
+    const formatted: PendingExamItem[] = cloudList
+      .filter((e) => {
+        const uid = e.uid || ''
+        const email = (e.userEmail || '').toLowerCase()
+        // 若該成員狀態為已離職，則不顯示
+        if (resignedKeys.has(uid) || resignedKeys.has(email)) {
+          return false
+        }
+        return true
+      })
+      .map((e) => {
+        const submittedDate = e.submittedAt?.toDate ? e.submittedAt.toDate() : (e.submittedAt instanceof Date ? e.submittedAt : (e.startedAt?.toDate ? e.startedAt.toDate() : null))
+        const monthKey = submittedDate
+          ? `${submittedDate.getFullYear()}-${String(submittedDate.getMonth() + 1).padStart(2, '0')}`
+          : ''
+        if (monthKey) monthSet.add(monthKey)
+
+        return {
+          examId: e.id,
+          mode: e.mode,
+          uid: e.uid,
+          displayName: e.displayName,
+          email: e.userEmail,
+          submittedAt: e.submittedAt?.toISOString ? e.submittedAt.toISOString() : (e.submittedAt instanceof Date ? e.submittedAt.toISOString() : (e.submittedAt ? String(e.submittedAt) : '')),
+          status: e.status || 'submitted',
+          totalScore: e.score || 0,
+          choiceScore: e.choiceScore || 0,
+          passed: e.passed,
+          answers: e.answers.map((a) => ({
+            questionId: a.questionId,
+            userAnswer: a.userAnswer,
+            isCorrect: a.isCorrect,
+            timeExpired: false,
+            score: a.score || 0,
+            comment: a.feedback || '',
+            questionDoc: a.questionDoc,
+          })),
+        }
+      })
+
+    // 月份清單降序排序
+    const sortedMonths = Array.from(monthSet).sort((a, b) => b.localeCompare(a))
+    setAvailableMonths(sortedMonths)
+
     setExams(formatted)
 
     // 若 URL 帶有 targetExamId，自動切換相對應的 statusTab 與 selectedExamId
@@ -141,11 +209,27 @@ function AdminGradeContent() {
     return () => unsubscribe()
   }, [])
 
-  // 根據 mode 與 statusTab 篩選考卷
+  // 根據 mode、statusTab、selectedMonth 與 selectedExamineeKey 綜合篩選考卷
   const filteredExams = exams.filter(e => {
     const matchMode = filterMode === 'all' || e.mode === filterMode
     const matchStatus = e.status === statusTab
-    return matchMode && matchStatus
+    
+    // 月份比對
+    let matchMonth = true
+    if (selectedMonth !== 'all') {
+      const d = e.submittedAt ? new Date(e.submittedAt) : null
+      const examYM = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : ''
+      matchMonth = examYM === selectedMonth
+    }
+
+    // 在職考生下拉篩選比對
+    let matchExaminee = true
+    if (selectedExamineeKey !== 'all') {
+      const userKey = e.uid || (e.email || '').toLowerCase() || e.displayName
+      matchExaminee = userKey === selectedExamineeKey || e.uid === selectedExamineeKey || (e.email || '').toLowerCase() === selectedExamineeKey.toLowerCase()
+    }
+
+    return matchMode && matchStatus && matchMonth && matchExaminee
   })
 
   // 用於控制詳細內頁區域滾動置頂
@@ -201,7 +285,7 @@ function AdminGradeContent() {
 
   const currentExam = exams.find(e => e.examId === selectedExamId)
 
-  // 當切換選取的考卷 ID 時才重置打分與評語（避免背景實時同步考卷列表時把主管寫到一半的內容蓋掉）
+  // 當切換選取的考卷 ID 時重置打分與評語並自動置頂頁面
   useEffect(() => {
     if (!currentExam) return
     const initialScores: Record<string, number> = {}
@@ -214,6 +298,9 @@ function AdminGradeContent() {
 
     setGradingScores(initialScores)
     setGradingComments(initialComments)
+
+    // 切換考卷時滾動至頂部
+    scrollToTop()
   }, [selectedExamId])
 
   const handleScoreChange = (qId: string, val: number) => {
@@ -459,7 +546,7 @@ function AdminGradeContent() {
             </button>
           </div>
 
-          <div className={styles.sidebarTitleRow} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div className={styles.sidebarTitleRow} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <h2 className={styles.sidebarTitle} style={{ margin: 0, fontSize: '0.95rem' }}>
               {statusTab === 'submitted' ? '📋 待批改考卷' : statusTab === 'graded' ? '查閱已批改考卷' : '📦 已擱置考卷'}
             </h2>
@@ -472,6 +559,68 @@ function AdminGradeContent() {
               <option value="quiz">綜合模式</option>
               <option value="essay">申論模式</option>
             </select>
+          </div>
+
+          {/* 考卷多維度篩選工具列 (月份選單 & 考生選單) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12, width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
+              <span style={{ fontSize: 11, color: '#f4a24a', fontWeight: 'bold', whiteSpace: 'nowrap', width: 65, flexShrink: 0 }}>📅 月份：</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  width: '100%',
+                  background: '#0f172a',
+                  color: '#f8fafc',
+                  border: '1px solid #38bdf8',
+                  padding: '4px 8px',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  outline: 'none',
+                }}
+              >
+                <option value="all">🌐 全部月份</option>
+                {availableMonths.map((m) => {
+                  const [y, mm] = m.split('-')
+                  return (
+                    <option key={m} value={m}>
+                      {y} 年 {parseInt(mm, 10)} 月
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
+              <span style={{ fontSize: 11, color: '#38bdf8', fontWeight: 'bold', whiteSpace: 'nowrap', width: 65, flexShrink: 0 }}>👤 考生：</span>
+              <select
+                value={selectedExamineeKey}
+                onChange={(e) => setSelectedExamineeKey(e.target.value)}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  width: '100%',
+                  background: '#0f172a',
+                  color: '#f8fafc',
+                  border: '1px solid #38bdf8',
+                  padding: '4px 8px',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  outline: 'none',
+                }}
+              >
+                <option value="all">🌐 全部在職考生</option>
+                {activeExaminees.map((ex) => (
+                  <option key={ex.key} value={ex.key}>
+                    👤 {ex.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className={styles.examList}>

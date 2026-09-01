@@ -13,6 +13,11 @@ export default function ProfileResultsPage() {
   const [loadingHistory, setLoadingHistory] = useState(true)
   const [sysSettings, setSysSettings] = useState({ quizPassThreshold: 90, essayPassThreshold: 90 })
 
+  // 月份篩選機制
+  const currentMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr)
+  const [availableMonths, setAvailableMonths] = useState<string[]>([currentMonthStr])
+
   useEffect(() => {
     async function loadCloudHistory() {
       if (user?.uid) {
@@ -23,10 +28,24 @@ export default function ProfileResultsPage() {
         setSysSettings({ quizPassThreshold: qTh, essayPassThreshold: eTh })
 
         const cloudExams = await getUserExamsFirestore(user.uid)
-        const updatedExams = cloudExams.map((e) => ({
-          ...e,
-          passed: e.score >= (e.mode === 'quiz' ? qTh : eTh),
-        }))
+        const monthSet = new Set<string>()
+        monthSet.add(currentMonthStr)
+
+        const updatedExams = cloudExams.map((e) => {
+          const d = e.submittedAt ? new Date(e.submittedAt) : (e.startedAt ? new Date(e.startedAt) : null)
+          const monthKey = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : ''
+          if (monthKey) monthSet.add(monthKey)
+
+          return {
+            ...e,
+            monthKey,
+            passed: e.score >= (e.mode === 'quiz' ? qTh : eTh),
+          }
+        })
+
+        const sortedMonths = Array.from(monthSet).sort((a, b) => b.localeCompare(a))
+        setAvailableMonths(sortedMonths)
+
         setHistoryList(updatedExams)
         setLoadingHistory(false)
       } else {
@@ -38,11 +57,17 @@ export default function ProfileResultsPage() {
 
   const displayName = userDoc?.displayName || '客服勇者'
 
-  // 統計數據計算
-  const totalExams = historyList.length
-  const passedExams = historyList.filter((h) => h.passed).length
+  // 按選定月份過濾考卷列表 (selectedMonth 為 'all' 包含全部)
+  const filteredHistory = historyList.filter((item: any) => {
+    if (selectedMonth === 'all') return true
+    return item.monthKey === selectedMonth
+  })
+
+  // 統計數據計算 (連動過濾結果)
+  const totalExams = filteredHistory.length
+  const passedExams = filteredHistory.filter((h) => h.passed).length
   const passRate = totalExams > 0 ? Math.round((passedExams / totalExams) * 100) : 0
-  const maxScore = historyList.reduce((max, h) => Math.max(max, h.score), 0)
+  const maxScore = filteredHistory.reduce((max, h) => Math.max(max, h.score), 0)
 
   return (
     <div className={styles.container}>
@@ -58,9 +83,42 @@ export default function ProfileResultsPage() {
           </div>
         </div>
 
-        <Link href="/" className={styles.navBtn}>
-          🏠 回首頁
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ fontSize: '0.9rem', color: '#f4a24a', fontWeight: 'bold' }}>📅 統計月份：</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: '#1e293b',
+                border: '2px solid #f4a24a',
+                color: '#f8fafc',
+                fontFamily: 'inherit',
+                fontSize: '0.9rem',
+                borderRadius: 4,
+                cursor: 'pointer',
+                outline: 'none',
+                boxShadow: '2px 2px 0px #000',
+              }}
+            >
+              {availableMonths.map((m) => {
+                const isCurrent = m === currentMonthStr
+                const [y, mm] = m.split('-')
+                return (
+                  <option key={m} value={m}>
+                    {y} 年 {parseInt(mm, 10)} 月 {isCurrent ? '(當月)' : ''}
+                  </option>
+                )
+              })}
+              <option value="all">🌐 全部歷史紀錄</option>
+            </select>
+          </div>
+
+          <Link href="/" className={styles.navBtn}>
+            🏠 回首頁
+          </Link>
+        </div>
       </header>
 
       {/* 統計摘要 */}
@@ -110,14 +168,14 @@ export default function ProfileResultsPage() {
                   ⏳ 正在載入雲端個人考卷紀錄...
                 </td>
               </tr>
-            ) : historyList.length === 0 ? (
+            ) : filteredHistory.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', padding: 24 }}>
-                  尚無任何歷史考試記錄
+                  尚無任何當月歷史考試記錄
                 </td>
               </tr>
             ) : (
-              historyList.map((item) => (
+              filteredHistory.map((item) => (
                 <tr key={item.id}>
                   <td style={{ fontWeight: 'bold', color: '#f8fafc' }}>
                     {item.mode === 'quiz' ? '客服綜合能力隨用抽考' : '客服實務情境申論特訓'}

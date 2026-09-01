@@ -29,8 +29,41 @@ export default function AdminSettingsPage() {
   const [qaTimePerQuestion, setQaTimePerQuestion] = useState(300)
   const [essayTimePerQuestion, setEssayTimePerQuestion] = useState(600)
 
+  // 考生狀態管理 state
+  const [examinees, setExaminees] = useState<any[]>([])
+  const [editingExaminee, setEditingExaminee] = useState<any | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editStatus, setEditStatus] = useState<'active' | 'resigned'>('active')
+  const [editResignedMonth, setEditResignedMonth] = useState('')
+  const [isSavingExaminee, setIsSavingExaminee] = useState(false)
+
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [isSyncingSheets, setIsSyncingSheets] = useState(false)
+
+  const fetchExaminees = async () => {
+    try {
+      const usersRef = collection(db, 'users')
+      const snap = await getDocs(usersRef)
+      const list: any[] = []
+      snap.forEach((uDoc) => {
+        const d = uDoc.data()
+        // 僅列出非 admin 且非 supervisor 的一般客服考生
+        if (!d.role || d.role === 'examinee') {
+          list.push({
+            id: uDoc.id,
+            displayName: d.displayName || '客服勇者',
+            email: d.email || '',
+            role: d.role || 'examinee',
+            status: d.status || 'active',
+            resignedMonth: d.resignedMonth || '',
+          })
+        }
+      })
+      setExaminees(list)
+    } catch (err) {
+      console.error('Failed to fetch examinees list:', err)
+    }
+  }
 
   useEffect(() => {
     // 權限檢查：若非 admin 則無權造訪此頁面
@@ -94,6 +127,9 @@ export default function AdminSettingsPage() {
       setChoiceTimePerQuestion(s.choiceTimePerQuestion ?? 120)
       setQaTimePerQuestion(s.qaTimePerQuestion ?? 300)
       setEssayTimePerQuestion(s.essayTimePerQuestion ?? 600)
+
+      // 載入考生清單
+      await fetchExaminees()
     }
 
     loadRolesAndSettings()
@@ -215,6 +251,36 @@ export default function AdminSettingsPage() {
 
     refreshUserDoc()
     showToast(`🗑️ 已移除主管授權：${emailToRemove}`)
+  }
+
+  const handleOpenEditExaminee = (ex: any) => {
+    setEditingExaminee(ex)
+    setEditName(ex.displayName || '')
+    setEditStatus(ex.status === 'resigned' ? 'resigned' : 'active')
+    const currentYM = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+    setEditResignedMonth(ex.resignedMonth || currentYM)
+  }
+
+  const handleSaveExamineeInfo = async () => {
+    if (!editingExaminee || isSavingExaminee) return
+    setIsSavingExaminee(true)
+    try {
+      const userRef = doc(db, 'users', editingExaminee.id)
+      await updateDoc(userRef, {
+        displayName: editName.trim() || '客服勇者',
+        status: editStatus,
+        resignedMonth: editStatus === 'resigned' ? editResignedMonth : '',
+      })
+
+      showToast(`✅ 考生【${editName}】狀態與姓名已成功更新！`)
+      setEditingExaminee(null)
+      await fetchExaminees()
+    } catch (err: any) {
+      console.error('Failed to update examinee info:', err)
+      alert(`⚠️ 更新失敗：${err?.message || '網路異常'}`)
+    } finally {
+      setIsSavingExaminee(false)
+    }
   }
 
   const handleSaveSettings = async () => {
@@ -393,6 +459,59 @@ export default function AdminSettingsPage() {
               )}
             </div>
           </div>
+
+          <div style={{ marginTop: 24, borderTop: '1px dashed #4a6fa5', paddingTop: 16 }}>
+            <h2 className={styles.panelTitle} style={{ fontSize: '1.1rem' }}>👥 客服考生帳號狀態與資料管理</h2>
+            <p className={styles.panelSub}>
+              檢視系統現有考生名單，可修訂顯示姓名或將離職員工標示為離職並設定生效月份。
+            </p>
+
+            <div className={styles.emailList}>
+              {examinees.length === 0 ? (
+                <p className={styles.emptyText}>雲端資料庫尚無一般客服考生紀錄</p>
+              ) : (
+                examinees.map((ex) => (
+                  <div key={ex.id} className={styles.emailItem} style={{ flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                      <span className={styles.emailText} style={{ fontWeight: 'bold' }}>
+                        👤 {ex.displayName}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>({ex.email || '無Email'})</span>
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          padding: '2px 6px',
+                          borderRadius: 3,
+                          backgroundColor: ex.status === 'resigned' ? '#b91c1c' : '#15803d',
+                          color: '#fff',
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {ex.status === 'resigned' ? `🔴 已離職 (${ex.resignedMonth || '未設月份'})` : '🟢 在職'}
+                      </span>
+                    </div>
+
+                    <button
+                      className="btn-pixel"
+                      style={{
+                        padding: '3px 10px',
+                        fontSize: '0.8rem',
+                        backgroundColor: '#38bdf8',
+                        color: '#000',
+                        border: '1px solid #0284c7',
+                        borderRadius: 3,
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                      }}
+                      onClick={() => handleOpenEditExaminee(ex)}
+                    >
+                      ✏️ 編輯狀態
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </section>
 
         {/* 2. 系統考試參數設定 */}
@@ -538,6 +657,180 @@ export default function AdminSettingsPage() {
           </div>
         </section>
       </div>
+
+      {/* 編輯考生資訊與狀態 Modal */}
+      {editingExaminee && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 16,
+          }}
+          onClick={() => setEditingExaminee(null)}
+        >
+          <div
+            style={{
+              backgroundColor: '#1e293b',
+              border: '3px solid #f4a24a',
+              borderRadius: 8,
+              maxWidth: 500,
+              width: '100%',
+              padding: 24,
+              boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+              color: '#f8fafc',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              style={{
+                marginTop: 0,
+                marginBottom: 16,
+                fontSize: '1.2rem',
+                color: '#f4a24a',
+                fontFamily: 'var(--font-pixel)',
+                borderBottom: '2px solid #334155',
+                paddingBottom: 10,
+              }}
+            >
+              ✏️ 編輯考生狀態與資料
+            </h2>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: '#94a3b8', marginBottom: 4 }}>
+                  帳號 Email (不可變更)：
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={editingExaminee.email || '無 Email'}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    backgroundColor: '#0f172a',
+                    border: '1px solid #334155',
+                    color: '#64748b',
+                    borderRadius: 4,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.9rem', color: '#f8fafc', fontWeight: 'bold', marginBottom: 4 }}>
+                  👤 客服顯示姓名：
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="請輸入顯示姓名"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    backgroundColor: '#0f172a',
+                    border: '2px solid #38bdf8',
+                    color: '#f8fafc',
+                    fontSize: '0.95rem',
+                    borderRadius: 4,
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.9rem', color: '#f8fafc', fontWeight: 'bold', marginBottom: 4 }}>
+                  📌 在職狀態：
+                </label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as 'active' | 'resigned')}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    backgroundColor: '#0f172a',
+                    border: '2px solid #f4a24a',
+                    color: '#f8fafc',
+                    fontSize: '0.95rem',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="active">🟢 在職 (正常參與考核)</option>
+                  <option value="resigned">🔴 已離職 (停止計算新月份考核)</option>
+                </select>
+              </div>
+
+              {editStatus === 'resigned' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.9rem', color: '#f87171', fontWeight: 'bold', marginBottom: 4 }}>
+                    📅 離職生效月份 (YYYY-MM)：
+                  </label>
+                  <input
+                    type="month"
+                    value={editResignedMonth}
+                    onChange={(e) => setEditResignedMonth(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      backgroundColor: '#0f172a',
+                      border: '2px solid #f87171',
+                      color: '#f8fafc',
+                      fontSize: '0.95rem',
+                      borderRadius: 4,
+                      outline: 'none',
+                    }}
+                  />
+                  <small style={{ color: '#94a3b8', marginTop: 4, display: 'block' }}>
+                    說明：在此月份（含）及之後的團隊考核表中將會自動隱藏該成員。
+                  </small>
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button
+                onClick={() => setEditingExaminee(null)}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#475569',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                }}
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSaveExamineeInfo}
+                disabled={isSavingExaminee}
+                style={{
+                  padding: '8px 20px',
+                  backgroundColor: '#f4a24a',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontFamily: 'var(--font-pixel)',
+                }}
+              >
+                {isSavingExaminee ? '💾 儲存中...' : '💾 儲存變更'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

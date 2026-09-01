@@ -15,6 +15,11 @@ export default function LeaderboardPage() {
   const [essayList, setEssayList] = useState<ExamHistoryItem[]>([])
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true)
 
+  // 月份選擇狀態，預設為目前年月 (YYYY-MM)
+  const currentMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr)
+  const [availableMonths, setAvailableMonths] = useState<string[]>([currentMonthStr])
+
   useEffect(() => {
     async function fetchCloudLeaderboard() {
       setLoadingLeaderboard(true)
@@ -38,6 +43,9 @@ export default function LeaderboardPage() {
         const q = query(collection(db, 'exams'), where('status', '==', 'graded'))
         const snap = await getDocs(q)
         const allExams: any[] = []
+        const monthSet = new Set<string>()
+        monthSet.add(currentMonthStr)
+
         snap.forEach((docSnap) => {
           const d = docSnap.data()
           const uid = d.uid || ''
@@ -48,6 +56,14 @@ export default function LeaderboardPage() {
             return
           }
 
+          const submittedDate = d.submittedAt?.toDate ? d.submittedAt.toDate() : d.createdAt?.toDate ? d.createdAt.toDate() : null
+          const monthKey = submittedDate
+            ? `${submittedDate.getFullYear()}-${String(submittedDate.getMonth() + 1).padStart(2, '0')}`
+            : ''
+          if (monthKey) {
+            monthSet.add(monthKey)
+          }
+
           allExams.push({
             id: d.id,
             uid,
@@ -55,10 +71,15 @@ export default function LeaderboardPage() {
             displayName: d.displayName || '客服勇者',
             mode: d.mode,
             score: d.score || 0,
-            date: d.submittedAt?.toDate ? d.submittedAt.toDate().toLocaleDateString() : '最近測驗',
+            date: submittedDate ? submittedDate.toLocaleDateString() : '最近測驗',
+            monthKey: monthKey,
             passed: d.passed || false,
           })
         })
+
+        // 按年月降序排序月份選單
+        const sortedMonths = Array.from(monthSet).sort((a, b) => b.localeCompare(a))
+        setAvailableMonths(sortedMonths)
 
         const settings = await getSystemSettings()
         const quizTh = settings.quizPassThreshold ?? settings.passThreshold ?? 90
@@ -80,12 +101,15 @@ export default function LeaderboardPage() {
           return Array.from(userBestMap.values()).sort((a, b) => b.score - a.score)
         }
 
+        // 根據選中的月份進行過濾 (若 selectedMonth 為 'all' 則包含全部，否則精準比對 monthKey)
+        const monthFiltered = allExams.filter((e) => selectedMonth === 'all' || e.monthKey === selectedMonth)
+
         const quizSorted = getBestUserExams(
-          allExams.filter((e) => e.mode === 'quiz'),
+          monthFiltered.filter((e) => e.mode === 'quiz'),
           quizTh
         )
         const essaySorted = getBestUserExams(
-          allExams.filter((e) => e.mode === 'essay'),
+          monthFiltered.filter((e) => e.mode === 'essay'),
           essayTh
         )
 
@@ -98,7 +122,7 @@ export default function LeaderboardPage() {
       }
     }
     fetchCloudLeaderboard()
-  }, [])
+  }, [selectedMonth])
 
   const currentList = activeTab === 'quiz' ? quizList : essayList
 
@@ -121,20 +145,42 @@ export default function LeaderboardPage() {
         </Link>
       </header>
 
-      {/* Tabs */}
-      <div className={styles.tabs}>
-        <button
-          className={`${styles.tabBtn} ${activeTab === 'quiz' ? styles.activeTab : ''}`}
-          onClick={() => setActiveTab('quiz')}
-        >
-          ⚔️ 綜合模式高分榜
-        </button>
-        <button
-          className={`${styles.tabBtn} ${activeTab === 'essay' ? styles.activeTab : ''}`}
-          onClick={() => setActiveTab('essay')}
-        >
-          📝 申論特訓榮譽榜
-        </button>
+      {/* Tabs & Month Selector */}
+      <div className={styles.tabsRow}>
+        <div className={styles.tabs}>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'quiz' ? styles.activeTab : ''}`}
+            onClick={() => setActiveTab('quiz')}
+          >
+            ⚔️ 綜合模式高分榜
+          </button>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'essay' ? styles.activeTab : ''}`}
+            onClick={() => setActiveTab('essay')}
+          >
+            📝 申論特訓榮譽榜
+          </button>
+        </div>
+
+        <div className={styles.monthSelectorArea}>
+          <label className={styles.monthLabel}>📅 統計月份：</label>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className={styles.monthSelect}
+          >
+            {availableMonths.map((m) => {
+              const isCurrent = m === currentMonthStr
+              const [y, mm] = m.split('-')
+              return (
+                <option key={m} value={m}>
+                  {y} 年 {parseInt(mm, 10)} 月 {isCurrent ? '(當月)' : ''}
+                </option>
+              )
+            })}
+            <option value="all">🌐 全部歷史紀錄</option>
+          </select>
+        </div>
       </div>
 
       {loadingLeaderboard ? (

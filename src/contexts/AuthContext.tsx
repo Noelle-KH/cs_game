@@ -2,7 +2,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { onAuthStateChanged, User, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth'
+import { onAuthStateChanged, User, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserSessionPersistence } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, googleProvider } from '@/lib/firebase/client'
 import { UserDoc, UserRole } from '@/types'
@@ -27,9 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   async function handleUserPostLogin(firebaseUser: User) {
-    // 設定 Client-side Cookie 以通過 proxy.ts 路由攔截
+    // 設定 Client-side Session Cookie（無 max-age，關閉瀏覽器分頁自動失效）
     if (typeof document !== 'undefined') {
-      document.cookie = `__session=${firebaseUser.uid}; path=/; max-age=36000; SameSite=Lax`
+      document.cookie = `__session=${firebaseUser.uid}; path=/; SameSite=Lax`
     }
 
     const ref = doc(db, 'users', firebaseUser.uid)
@@ -44,17 +44,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updatedRole = isAdmin ? 'admin' : (isSupervisor ? 'supervisor' : (existingData.role || 'examinee'))
       await setDoc(ref, {
         lastLoginAt: serverTimestamp(),
+        lastActiveAt: serverTimestamp(),
         role: updatedRole,
         email: firebaseUser.email || existingData.email,
       }, { merge: true })
     } else {
-      const newUserDoc: Omit<UserDoc, 'createdAt' | 'lastLoginAt'> & { createdAt: any; lastLoginAt: any } = {
+      const newUserDoc: Omit<UserDoc, 'createdAt' | 'lastLoginAt'> & { createdAt: any; lastLoginAt: any; lastActiveAt: any } = {
         uid: firebaseUser.uid,
         email: firebaseUser.email || '',
         displayName: '',
         role: targetRole,
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp(),
+        lastActiveAt: serverTimestamp(),
       }
       await setDoc(ref, newUserDoc)
     }
@@ -137,6 +139,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    // 確保 Firebase Auth 設定為 Session 級別持久化
+    setPersistence(auth, browserSessionPersistence).catch((err) => {
+      console.warn('Set auth persistence error:', err)
+    })
+
+    // 使用 SessionStorage 標記目前視窗/分頁 Session 生命週期
+    if (typeof window !== 'undefined') {
+      const activeSession = sessionStorage.getItem('cs_tab_session_active')
+      if (!activeSession) {
+        // 全新開啟的分頁/視窗：清空 Firebase Auth 快照與 Session
+        signOut(auth).catch(() => {})
+        sessionStorage.setItem('cs_tab_session_active', '1')
+      }
+    }
+
     // 檢查是否有 Redirect 回來的結果
     getRedirectResult(auth).then(async (result) => {
       if (result?.user) {
@@ -157,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (firebaseUser) {
         setUserDocLoaded(false)
         if (typeof document !== 'undefined') {
-          document.cookie = `__session=${firebaseUser.uid}; path=/; max-age=36000; SameSite=Lax`
+          document.cookie = `__session=${firebaseUser.uid}; path=/; SameSite=Lax`
         }
         await fetchUserDoc(firebaseUser.uid, firebaseUser.email)
         setUser(firebaseUser)
@@ -180,6 +197,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signInWithGoogle() {
     try {
+      // 設定 Session 持久化（關閉分頁/瀏覽器即自動失效需要重新登入）
+      await setPersistence(auth, browserSessionPersistence)
       const result = await signInWithPopup(auth, googleProvider)
       const firebaseUser = result.user
       return await handleUserPostLogin(firebaseUser)

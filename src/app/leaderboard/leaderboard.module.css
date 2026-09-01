@@ -58,13 +58,50 @@
   border-color: var(--color-warm-orange, #f4a24a);
 }
 
-/* 頁籤切換 */
+/* 頁籤切換與月份篩選 */
+.tabsRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  border-bottom: 2px solid #334155;
+  padding-bottom: var(--space-3);
+}
+
 .tabs {
   display: flex;
   gap: var(--space-3);
-  margin-bottom: var(--space-6);
-  border-bottom: 2px solid #334155;
-  padding-bottom: var(--space-2);
+}
+
+.monthSelectorArea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.monthLabel {
+  font-size: 0.9rem;
+  color: var(--color-warm-orange, #f4a24a);
+  font-weight: bold;
+}
+
+.monthSelect {
+  padding: 8px 12px;
+  background-color: #1e293b;
+  border: 2px solid var(--color-warm-orange, #f4a24a);
+  color: #f8fafc;
+  font-family: var(--font-pixel);
+  font-size: 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 2px 2px 0px #000;
+}
+
+.monthSelect:focus {
+  border-color: #4ade80;
 }
 
 .tabBtn {

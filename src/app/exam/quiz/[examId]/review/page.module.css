@@ -166,6 +166,7 @@
 }
 
 .statusCorrect { color: var(--color-success); border-color: var(--color-success); background: rgba(76,175,80,0.08); }
+.statusPartial { color: #f59e0b; border-color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
 .statusWrong   { color: var(--color-maple-red); border-color: var(--color-maple-red); background: rgba(204,61,61,0.08); }
 .statusExpired { color: var(--color-warning); border-color: var(--color-warning); background: rgba(255,152,0,0.08); }
 .statusQa      { color: var(--color-sky-blue); border-color: var(--color-sky-blue); background: rgba(91,164,207,0.08); }
