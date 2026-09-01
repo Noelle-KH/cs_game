@@ -93,6 +93,7 @@ function AdminGradeContent() {
 
     // 1. 查出所有在職 (status !== 'resigned') 考生與已離職 (status === 'resigned') 考生
     const resignedKeys = new Set<string>()
+    const userDisplayNameMap = new Map<string, string>() // key: uid 或 lowercase email -> 最新 displayName
     const examineeList: { key: string; displayName: string; email: string }[] = []
     const examineeSet = new Set<string>()
 
@@ -103,6 +104,9 @@ function AdminGradeContent() {
         const uid = uDoc.id
         const email = (uData.email || '').toLowerCase()
         const displayName = uData.displayName || '客服勇者'
+
+        if (uid && uData.displayName) userDisplayNameMap.set(uid, uData.displayName)
+        if (email && uData.displayName) userDisplayNameMap.set(email, uData.displayName)
 
         if (uData.status === 'resigned') {
           if (uid) resignedKeys.add(uid)
@@ -147,11 +151,15 @@ function AdminGradeContent() {
           : ''
         if (monthKey) monthSet.add(monthKey)
 
+        const uid = e.uid || ''
+        const email = (e.userEmail || '').toLowerCase()
+        const latestDisplayName = userDisplayNameMap.get(uid) || userDisplayNameMap.get(email) || e.displayName
+
         return {
           examId: e.id,
           mode: e.mode,
           uid: e.uid,
-          displayName: e.displayName,
+          displayName: latestDisplayName,
           email: e.userEmail,
           submittedAt: e.submittedAt?.toISOString ? e.submittedAt.toISOString() : (e.submittedAt instanceof Date ? e.submittedAt.toISOString() : (e.submittedAt ? String(e.submittedAt) : '')),
           status: e.status || 'submitted',
