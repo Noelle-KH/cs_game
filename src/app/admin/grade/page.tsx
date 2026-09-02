@@ -88,8 +88,9 @@ function AdminGradeContent() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   // 從 Firestore 實時載入待批改/已批改/已擱置考卷
-  const fetchPendingExams = async () => {
+  const fetchPendingExams = async (overrideThresholds?: { quiz: number; essay: number }) => {
     setLoadingPending(true)
+    const activeThresholds = overrideThresholds || passThresholds
 
     // 1. 查出所有在職 (status !== 'resigned') 考生與已離職 (status === 'resigned') 考生
     const resignedKeys = new Set<string>()
@@ -155,6 +156,9 @@ function AdminGradeContent() {
         const email = (e.userEmail || '').toLowerCase()
         const latestDisplayName = userDisplayNameMap.get(uid) || userDisplayNameMap.get(email) || e.displayName
 
+        const currentThreshold = e.mode === 'quiz' ? activeThresholds.quiz : activeThresholds.essay
+        const isPassed = (e.score || 0) >= currentThreshold
+
         return {
           examId: e.id,
           mode: e.mode,
@@ -165,7 +169,7 @@ function AdminGradeContent() {
           status: e.status || 'submitted',
           totalScore: e.score || 0,
           choiceScore: e.choiceScore || 0,
-          passed: e.passed,
+          passed: isPassed,
           answers: e.answers.map((a) => ({
             questionId: a.questionId,
             userAnswer: a.userAnswer,
@@ -199,15 +203,16 @@ function AdminGradeContent() {
   }
 
   useEffect(() => {
-    fetchPendingExams()
-    async function loadSettings() {
+    async function initData() {
       const s = await getSystemSettings()
-      setPassThresholds({
+      const thresholds = {
         quiz: s.quizPassThreshold ?? s.passThreshold ?? 90,
         essay: s.essayPassThreshold ?? s.passThreshold ?? 90,
-      })
+      }
+      setPassThresholds(thresholds)
+      await fetchPendingExams(thresholds)
     }
-    loadSettings()
+    initData()
 
     // 實時監聽待批改考卷變動，有新交卷時自動刷新列表
     const unsubscribe = subscribePendingExams(() => {
@@ -421,15 +426,17 @@ function AdminGradeContent() {
     })
 
     try {
+      const modeThreshold = currentExam.mode === 'quiz' ? passThresholds.quiz : passThresholds.essay
       const totalScore = await gradeExamFirestore({
         examId: currentExam.examId,
         answers: updatedAnswers,
         essayScore: essayScoreSum,
         choiceScore: currentExam.choiceScore || 0,
         gradedBy: userDoc?.displayName || '管理者',
+        passingThreshold: modeThreshold,
       })
 
-      const isPassed = totalScore >= 90
+      const isPassed = totalScore >= modeThreshold
 
       // 取得該考生此模式歷史考次
       const userExams = await getUserExamsFirestore(currentExam.uid)
@@ -694,14 +701,14 @@ function AdminGradeContent() {
                     <span style={{ color: '#cbd5e1' }}>
                       狀態：
                       <span className={`${styles.statusText} ${styles[currentExam.status]}`}>
-                        {currentExam.status === 'submitted' ? '等待主管審核評分' : currentExam.status === 'graded' ? `已批改 (${currentExam.totalScore}分 / ${currentExam.passed ? '通過' : '未通過'})` : '📦 暫時擱置中'}
+                        {currentExam.status === 'submitted' ? '等待主管審核評分' : currentExam.status === 'graded' ? `已批改 (${currentExam.totalScore}分 / ${(currentExam.totalScore || 0) >= (currentExam.mode === 'quiz' ? passThresholds.quiz : passThresholds.essay) ? '通過' : '未通過'})` : '📦 暫時擱置中'}
                       </span>
                     </span>
                     {currentExam.mode === 'quiz' && (
                       <>
                         <span style={{ color: '#475569' }}>|</span>
                         <span style={{ color: '#4ade80', fontWeight: 'bold' }}>
-                          選擇題得分：{currentExam.choiceScore ?? 0} / 45 分
+                          選擇題得分：{currentExam.choiceScore ?? 0} 分
                         </span>
                       </>
                     )}
@@ -978,7 +985,7 @@ function AdminGradeContent() {
                             📝 評語與指導建議：
                           </label>
                           <textarea
-                            rows={3}
+                            rows={5}
                             placeholder="請針對此題作答邏輯、同理心表現給予文字指導..."
                             value={comment}
                             onChange={(e) => handleCommentChange(ans.questionId, e.target.value)}

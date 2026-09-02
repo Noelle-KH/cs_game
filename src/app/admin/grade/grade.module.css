@@ -392,6 +392,7 @@
 
 .commentTextarea {
   width: 100%;
+  min-height: 120px;
   padding: var(--space-4) var(--space-5);
   background: var(--color-dark-bg);
   color: var(--color-parchment);

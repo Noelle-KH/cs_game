@@ -53,8 +53,8 @@ export default function AdminUsersOverviewPage() {
           const uid = uDoc.id
           const email = (uData.email || '').toLowerCase()
 
-          // 收集管理員與主管帳號，確保後續不會被誤建立為考生條目
-          if (uData.role === 'admin' || uData.role === 'supervisor') {
+          // 收集管理員、主管與觀察員(viewer)帳號，確保後續不會顯示在團隊考核列表中
+          if (uData.role === 'admin' || uData.role === 'supervisor' || uData.role === 'viewer') {
             if (uid) nonExamineeKeys.add(uid)
             if (email) nonExamineeKeys.add(email)
             if (uData.displayName) nonExamineeKeys.add(uData.displayName)
@@ -139,10 +139,14 @@ export default function AdminUsersOverviewPage() {
         if (matchMonthFilter) {
           if (item.mode === 'quiz') {
             existing.totalQuizExams += 1
-            existing.highestQuizScore = Math.max(existing.highestQuizScore, item.score || 0)
+            if (item.status === 'graded') {
+              existing.highestQuizScore = Math.max(existing.highestQuizScore, item.score || 0)
+            }
           } else if (item.mode === 'essay') {
             existing.totalEssayExams += 1
-            existing.highestEssayScore = Math.max(existing.highestEssayScore, item.score || 0)
+            if (item.status === 'graded') {
+              existing.highestEssayScore = Math.max(existing.highestEssayScore, item.score || 0)
+            }
           }
 
           // 申論考核狀態判定 (已完成 / 待批改 / 未提交)

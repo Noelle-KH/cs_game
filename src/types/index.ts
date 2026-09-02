@@ -1,5 +1,5 @@
 // Firestore 資料型別定義
-export type UserRole = 'examinee' | 'supervisor' | 'admin'
+export type UserRole = 'examinee' | 'supervisor' | 'admin' | 'viewer'
 export type ExamMode = 'quiz' | 'essay'
 export type ExamStatus = 'in-progress' | 'submitted' | 'graded'
 export type QuestionType = 'choice' | 'qa' | 'essay'

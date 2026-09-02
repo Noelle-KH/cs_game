@@ -35,6 +35,7 @@ export default function AdminSettingsPage() {
   const [editName, setEditName] = useState('')
   const [editStatus, setEditStatus] = useState<'active' | 'resigned'>('active')
   const [editResignedMonth, setEditResignedMonth] = useState('')
+  const [editRole, setEditRole] = useState<'examinee' | 'viewer'>('examinee')
   const [isSavingExaminee, setIsSavingExaminee] = useState(false)
 
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -47,8 +48,8 @@ export default function AdminSettingsPage() {
       const list: any[] = []
       snap.forEach((uDoc) => {
         const d = uDoc.data()
-        // 僅列出非 admin 且非 supervisor 的一般客服考生
-        if (!d.role || d.role === 'examinee') {
+        // 列出非 admin 且非 supervisor 的使用者（包含 examinee 與 viewer 觀察員）
+        if (!d.role || d.role === 'examinee' || d.role === 'viewer') {
           list.push({
             id: uDoc.id,
             displayName: d.displayName || '客服勇者',
@@ -61,7 +62,7 @@ export default function AdminSettingsPage() {
       })
       setExaminees(list)
     } catch (err) {
-      console.error('Failed to fetch examinees list:', err)
+      console.error('Failed to fetch examinees:', err)
     }
   }
 
@@ -256,6 +257,7 @@ export default function AdminSettingsPage() {
   const handleOpenEditExaminee = (ex: any) => {
     setEditingExaminee(ex)
     setEditName(ex.displayName || '')
+    setEditRole(ex.role === 'viewer' ? 'viewer' : 'examinee')
     setEditStatus(ex.status === 'resigned' ? 'resigned' : 'active')
     const currentYM = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
     setEditResignedMonth(ex.resignedMonth || currentYM)
@@ -268,6 +270,7 @@ export default function AdminSettingsPage() {
       const userRef = doc(db, 'users', editingExaminee.id)
       await updateDoc(userRef, {
         displayName: editName.trim() || '客服勇者',
+        role: editRole,
         status: editStatus,
         resignedMonth: editStatus === 'resigned' ? editResignedMonth : '',
       })
@@ -461,27 +464,60 @@ export default function AdminSettingsPage() {
           </div>
 
           <div style={{ marginTop: 24, borderTop: '1px dashed #4a6fa5', paddingTop: 16 }}>
-            <h2 className={styles.panelTitle} style={{ fontSize: '1.1rem' }}>👥 客服考生帳號狀態與資料管理</h2>
-            <p className={styles.panelSub}>
-              檢視系統現有考生名單，可修訂顯示姓名或將離職員工標示為離職並設定生效月份。
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <h2 className={styles.panelTitle} style={{ fontSize: '1.2rem', color: '#38bdf8' }}>👥 客服考生帳號狀態與資料管理</h2>
+                <p className={styles.panelSub} style={{ marginTop: 4 }}>
+                  檢視全站現有考生與觀察員名單，可修訂顯示姓名、調整帳號權限身分，或標示離職生效月份。
+                </p>
+              </div>
+              <span style={{ fontSize: '0.85rem', color: '#94a3b8', background: 'rgba(255,255,255,0.05)', padding: '4px 12px', borderRadius: 4, border: '1px solid #334155' }}>
+                共計 <strong>{examinees.length}</strong> 位帳號成員
+              </span>
+            </div>
 
-            <div className={styles.emailList}>
+            <div className={styles.examineeList}>
               {examinees.length === 0 ? (
                 <p className={styles.emptyText}>雲端資料庫尚無一般客服考生紀錄</p>
               ) : (
                 examinees.map((ex) => (
-                  <div key={ex.id} className={styles.emailItem} style={{ flexWrap: 'wrap', gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                      <span className={styles.emailText} style={{ fontWeight: 'bold' }}>
+                  <div
+                    key={ex.id}
+                    className={styles.emailItem}
+                    style={{
+                      flexWrap: 'wrap',
+                      gap: 12,
+                      padding: '12px 16px',
+                      borderRadius: 6,
+                      background: 'rgba(15, 23, 42, 0.6)',
+                      border: '1px solid #334155'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 280 }}>
+                      <span className={styles.emailText} style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#f8fafc' }}>
                         👤 {ex.displayName}
                       </span>
-                      <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>({ex.email || '無Email'})</span>
+                      <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>({ex.email || '無Email'})</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span
                         style={{
-                          fontSize: '0.75rem',
-                          padding: '2px 6px',
-                          borderRadius: 3,
+                          fontSize: '0.8rem',
+                          padding: '3px 8px',
+                          borderRadius: 4,
+                          backgroundColor: ex.role === 'viewer' ? '#9333ea' : '#0284c7',
+                          color: '#fff',
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {ex.role === 'viewer' ? '👁️ 觀察員' : '🎯 客服考生'}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.8rem',
+                          padding: '3px 8px',
+                          borderRadius: 4,
                           backgroundColor: ex.status === 'resigned' ? '#b91c1c' : '#15803d',
                           color: '#fff',
                           fontWeight: 'bold',
@@ -489,24 +525,25 @@ export default function AdminSettingsPage() {
                       >
                         {ex.status === 'resigned' ? `🔴 已離職 (${ex.resignedMonth || '未設月份'})` : '🟢 在職'}
                       </span>
-                    </div>
 
-                    <button
-                      className="btn-pixel"
-                      style={{
-                        padding: '3px 10px',
-                        fontSize: '0.8rem',
-                        backgroundColor: '#38bdf8',
-                        color: '#000',
-                        border: '1px solid #0284c7',
-                        borderRadius: 3,
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                      }}
-                      onClick={() => handleOpenEditExaminee(ex)}
-                    >
-                      ✏️ 編輯狀態
-                    </button>
+                      <button
+                        className="btn-pixel"
+                        style={{
+                          padding: '5px 14px',
+                          fontSize: '0.85rem',
+                          backgroundColor: '#38bdf8',
+                          color: '#000',
+                          border: '2px solid #0284c7',
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          marginLeft: 4
+                        }}
+                        onClick={() => handleOpenEditExaminee(ex)}
+                      >
+                        ✏️ 編輯狀態與權限
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -743,6 +780,30 @@ export default function AdminSettingsPage() {
                     outline: 'none',
                   }}
                 />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.9rem', color: '#f8fafc', fontWeight: 'bold', marginBottom: 4 }}>
+                  🏷️ 帳號權限身分：
+                </label>
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value as 'examinee' | 'viewer')}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    backgroundColor: '#0f172a',
+                    border: '2px solid #a855f7',
+                    color: '#f8fafc',
+                    fontSize: '0.95rem',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="examinee">🎯 客服考生 (正常計入團隊考核清單)</option>
+                  <option value="viewer">👁️ 觀察員 Viewer (可做題與看排行榜，排除於團隊考核)</option>
+                </select>
               </div>
 
               <div>

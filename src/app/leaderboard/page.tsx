@@ -30,7 +30,7 @@ export default function LeaderboardPage() {
           const usersSnap = await getDocs(collection(db, 'users'))
           usersSnap.forEach((uDoc) => {
             const uData = uDoc.data()
-            if (uData.role === 'admin' || uData.role === 'supervisor') {
+            if (uData.role === 'admin' || uData.role === 'supervisor' || uData.role === 'viewer') {
               if (uDoc.id) nonExamineeKeys.add(uDoc.id)
               if (uData.email) nonExamineeKeys.add(uData.email.toLowerCase())
             }
